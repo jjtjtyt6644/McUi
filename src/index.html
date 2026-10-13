@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0d1017">
 <title>Aetheris</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c3aed'/%3E%3Cstop offset='1' stop-color='%2306b6d4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23g)'/%3E%3Cpath d='M32 10 50 27 32 54 14 27Z' fill='%23fff'/%3E%3Cpath d='M32 10 50 27 32 54Z' fill='%23dfe8ff'/%3E%3Cpath d='M14 27h36L32 54Z' fill='%23fff' opacity='.55'/%3E%3C/svg%3E">
 <style>
@@ -272,6 +273,46 @@ body[data-state=starting] .hero-icon,body[data-state=stopping] .hero-icon{border
 .icon-prev{width:64px;height:64px;border-radius:10px;image-rendering:pixelated;background:#1b1b1b;border:1px solid var(--line2);flex:none;display:grid;place-items:center;color:var(--dim)}
 .li.off .nm,.li.off .meta{opacity:.5}
 .card-h .seg{margin-left:auto}
+/* v4 polish */
+html{scrollbar-color:#2a3146 transparent;scrollbar-width:thin}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#262c3e;border-radius:10px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#353d55;background-clip:content-box}
+::-webkit-scrollbar-corner{background:transparent}
+::selection{background:#7c3aed66;color:#fff}
+a[data-href]{cursor:pointer}
+a:focus-visible{outline:2px solid #a78bfa;outline-offset:2px;border-radius:6px}
+.top{background:linear-gradient(180deg,#0c0f16,#0a0c12);position:relative}
+.top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,#7c3aed55 30%,#06b6d455 70%,transparent)}
+.top{border-bottom-color:transparent}
+.side{background:linear-gradient(180deg,#0e1119,#0b0d14)}
+.card{background:linear-gradient(180deg,#141824,#11151e);box-shadow:inset 0 1px 0 #ffffff07,0 1px 2px #0006;transition:border-color .15s}
+.stat:hover,.perf .card:hover,.wcard:hover{border-color:var(--line2)}
+.stat-ic{background:linear-gradient(135deg,#7c3aed26,#06b6d41a);box-shadow:inset 0 0 0 1px #8b5cf622}
+.stat-v small{font-size:12px;font-weight:500;color:var(--muted);margin-left:6px}
+.btn{box-shadow:0 1px 0 #ffffff1a inset,0 2px 8px -2px #0008}
+.btn.ghost{box-shadow:0 1px 0 #ffffff08 inset}
+.btn.ghost:hover{border-color:#3a4360}
+.btn:active:not(:disabled){transform:translateY(1px)}
+input:hover:not(:focus):not(:disabled),select:hover:not(:focus),textarea:hover:not(:focus){border-color:#3a4360}
+nav a{transition:background-color .12s,color .12s}
+nav a .ic{transition:color .12s}
+nav a:hover .ic{color:#c4b5fd}
+.pill{background:#ffffff06}
+.pill.on{border-color:#22c55e44;background:#22c55e10;color:#bbf7d0}
+.pill.mid{border-color:#f59e0b44;background:#f59e0b10;color:#fde68a}
+.hero{background:linear-gradient(135deg,#171230 0%,#121826 45%,#0f1a24 100%)}
+.hero-state{font-size:28px}
+.list{background:#0e121a}
+.li{transition:background-color .12s}
+.chip{transition:border-color .12s}.chip:hover{border-color:#8b5cf688}
+.toast{background:#191e2c;backdrop-filter:none}
+.modal{animation:tin .12s ease-out}
+.empty{color:var(--dim)}
+.card-h h3{letter-spacing:-.005em}
+.gsec{background:linear-gradient(180deg,#141824,#11151e)}
+
 /* v3 */
 .restart{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#2a1d06,#1f1a0c);border-bottom:1px solid #78350f;color:#fde68a;padding:9px 28px;font-size:13px}
 .restart .ic{color:#fbbf24}
@@ -385,21 +426,21 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
   <aside class="side" id="side">
     <div class="brand"><svg width="36" height="36"><use href="#logo"/></svg><div><b>Aetheris</b><small>Server panel</small></div></div>
     <nav>
-      <a href="#dashboard" data-nav="dashboard"><svg class="ic"><use href="#i-dash"/></svg>Dashboard</a>
-      <a href="#console" data-nav="console"><svg class="ic"><use href="#i-term"/></svg>Console</a>
+      <a data-href="#dashboard" tabindex="0" role="link" data-nav="dashboard"><svg class="ic"><use href="#i-dash"/></svg>Dashboard</a>
+      <a data-href="#console" tabindex="0" role="link" data-nav="console"><svg class="ic"><use href="#i-term"/></svg>Console</a>
       <div class="nav-sep">Configure</div>
-      <a href="#options" data-nav="options"><svg class="ic"><use href="#i-sliders"/></svg>Options</a>
-      <a href="#gamerules" data-nav="gamerules"><svg class="ic"><use href="#i-book"/></svg>Game rules</a>
-      <a href="#players" data-nav="players"><svg class="ic"><use href="#i-users"/></svg>Players<span class="nbadge" id="navPlayers" hidden></span></a>
-      <a href="#worlds" data-nav="worlds"><svg class="ic"><use href="#i-globe"/></svg>Worlds</a>
-      <a href="#mods" data-nav="mods"><svg class="ic"><use href="#i-puzzle"/></svg><span id="navMods">Mods &amp; plugins</span></a>
+      <a data-href="#options" tabindex="0" role="link" data-nav="options"><svg class="ic"><use href="#i-sliders"/></svg>Options</a>
+      <a data-href="#gamerules" tabindex="0" role="link" data-nav="gamerules"><svg class="ic"><use href="#i-book"/></svg>Game rules</a>
+      <a data-href="#players" tabindex="0" role="link" data-nav="players"><svg class="ic"><use href="#i-users"/></svg>Players<span class="nbadge" id="navPlayers" hidden></span></a>
+      <a data-href="#worlds" tabindex="0" role="link" data-nav="worlds"><svg class="ic"><use href="#i-globe"/></svg>Worlds</a>
+      <a data-href="#mods" tabindex="0" role="link" data-nav="mods"><svg class="ic"><use href="#i-puzzle"/></svg><span id="navMods">Mods &amp; plugins</span></a>
       <div class="nav-sep">Manage</div>
-      <a href="#backups" data-nav="backups"><svg class="ic"><use href="#i-archive"/></svg>Backups</a>
-      <a href="#schedules" data-nav="schedules"><svg class="ic"><use href="#i-clock"/></svg>Schedules<span class="nbadge" id="navTasks" style="background:#8b5cf622;color:#c4b5fd" hidden></span></a>
-      <a href="#software" data-nav="software"><svg class="ic"><use href="#i-box"/></svg>Software</a>
-      <a href="#files" data-nav="files"><svg class="ic"><use href="#i-folder"/></svg>Files</a>
-      <a href="#settings" data-nav="settings"><svg class="ic"><use href="#i-gear"/></svg>Settings</a>
-      <a href="#guide" data-nav="guide"><svg class="ic"><use href="#i-book"/></svg>Guide</a>
+      <a data-href="#backups" tabindex="0" role="link" data-nav="backups"><svg class="ic"><use href="#i-archive"/></svg>Backups</a>
+      <a data-href="#schedules" tabindex="0" role="link" data-nav="schedules"><svg class="ic"><use href="#i-clock"/></svg>Schedules<span class="nbadge" id="navTasks" style="background:#8b5cf622;color:#c4b5fd" hidden></span></a>
+      <a data-href="#software" tabindex="0" role="link" data-nav="software"><svg class="ic"><use href="#i-box"/></svg>Software</a>
+      <a data-href="#files" tabindex="0" role="link" data-nav="files"><svg class="ic"><use href="#i-folder"/></svg>Files</a>
+      <a data-href="#settings" tabindex="0" role="link" data-nav="settings"><svg class="ic"><use href="#i-gear"/></svg>Settings</a>
+      <a data-href="#guide" tabindex="0" role="link" data-nav="guide"><svg class="ic"><use href="#i-book"/></svg>Guide</a>
     </nav>
     <div class="side-foot">
       <div class="row"><span class="dot" id="sideDot"></span><span id="sideState">Offline</span><span class="sp"></span><span id="sidePlayers"></span></div>
@@ -431,7 +472,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
   </div>
   <div class="banner warn" id="eulaCard" hidden>
     <svg class="ic lg"><use href="#i-alert"/></svg>
-    <div class="grow"><b>Accept the Minecraft EULA</b><div class="muted" style="font-size:13px">Mojang requires every server owner to agree to the <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noopener">Minecraft End User License Agreement</a> before starting a server.</div></div>
+    <div class="grow"><b>Accept the Minecraft EULA</b><div class="muted" style="font-size:13px">Mojang requires every server owner to agree to the <a data-href="https://aka.ms/MinecraftEULA" tabindex="0" role="link">Minecraft End User License Agreement</a> before starting a server.</div></div>
     <button class="btn warn" id="eulaBtn">I agree</button>
   </div>
   <div class="card hero">
@@ -443,8 +484,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <div class="addr"><code id="addr">—</code><button class="icon-btn" id="copyAddr" title="Copy address" aria-label="Copy address"><svg class="ic sm"><use href="#i-copy"/></svg></button><span class="badge n" id="playitBadge" hidden>playit</span><span class="badge n" id="loaderBadge"></span></div>
       <div class="qa">
         <button class="btn ghost sm" id="qaBackup"><svg class="ic sm"><use href="#i-archive"/></svg>Back up now</button>
-        <a class="btn ghost sm" href="#console"><svg class="ic sm"><use href="#i-term"/></svg>Console</a>
-        <a class="btn ghost sm" href="#mods"><svg class="ic sm"><use href="#i-puzzle"/></svg>Mods</a>
+        <a class="btn ghost sm" data-href="#console" tabindex="0" role="link"><svg class="ic sm"><use href="#i-term"/></svg>Console</a>
+        <a class="btn ghost sm" data-href="#mods" tabindex="0" role="link"><svg class="ic sm"><use href="#i-puzzle"/></svg>Mods</a>
         <button class="btn ghost sm" id="qaFolder"><svg class="ic sm"><use href="#i-folder"/></svg>Open folder</button>
       </div>
     </div>
@@ -476,8 +517,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
     </div>
   </div>
   <div class="grid2">
-    <div class="card"><div class="card-h"><svg class="ic"><use href="#i-users"/></svg><h3>Online players</h3><a href="#players">Manage</a></div><div id="dashPlayers" class="chips"></div></div>
-    <div class="card"><div class="card-h"><svg class="ic"><use href="#i-term"/></svg><h3>Console</h3><a href="#console">Open</a></div><div class="mini-term" id="miniTerm"></div></div>
+    <div class="card"><div class="card-h"><svg class="ic"><use href="#i-users"/></svg><h3>Online players</h3><a data-href="#players" tabindex="0" role="link">Manage</a></div><div id="dashPlayers" class="chips"></div></div>
+    <div class="card"><div class="card-h"><svg class="ic"><use href="#i-term"/></svg><h3>Console</h3><a data-href="#console" tabindex="0" role="link">Open</a></div><div class="mini-term" id="miniTerm"></div></div>
   </div>
 </section>
 
@@ -486,7 +527,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
   <div class="ctool">
     <input type="search" id="cFilter" placeholder="Search the console…" spellcheck="false" aria-label="Search console">
     <div class="seg" id="cLevel"><button class="on" data-l="">All</button><button data-l="l-warn">Warnings</button><button data-l="l-err">Errors</button><button data-l="l-chat">Chat</button><button data-l="l-join">Joins</button></div>
-    <a class="btn ghost sm" href="/api/download?path=logs/latest.log" title="Download logs/latest.log"><svg class="ic sm"><use href="#i-down"/></svg>Log file</a>
+    <a class="btn ghost sm" data-href="/api/download?path=logs/latest.log" tabindex="0" role="link" title="Download logs/latest.log"><svg class="ic sm"><use href="#i-down"/></svg>Log file</a>
   </div>
   <div class="qc" id="quickCmds"></div>
   <div class="term" id="term" tabindex="0" aria-live="off"></div>
@@ -535,12 +576,12 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
     <div class="card-h"><svg class="ic"><use href="#i-globe"/></svg><h3>Worlds</h3><button class="btn ghost sm w-off" id="wReset"><svg class="ic sm"><use href="#i-restart"/></svg>Reset current world</button><button class="btn sm w-off" id="wNew"><svg class="ic sm"><use href="#i-plus"/></svg>New world</button></div>
     <div class="wlist" id="wList"></div>
   </div>
-  <div class="card"><div class="card-h"><svg class="ic"><use href="#i-up"/></svg><h3>Upload a world</h3></div><p class="sub" style="margin-top:-8px">Unzip your world, then copy its folder (the one that contains <code>level.dat</code>) into the server folder, or use <a href="#files">Files</a> to upload it. It will show up here so you can activate it.</p></div>
+  <div class="card"><div class="card-h"><svg class="ic"><use href="#i-up"/></svg><h3>Upload a world</h3></div><p class="sub" style="margin-top:-8px">Unzip your world, then copy its folder (the one that contains <code>level.dat</code>) into the server folder, or use <a data-href="#files" tabindex="0" role="link">Files</a> to upload it. It will show up here so you can activate it.</p></div>
 </section>
 
 <!-- ============ MODS ============ -->
 <section data-page="mods" hidden>
-  <div class="banner warn" id="mVanilla" hidden><svg class="ic"><use href="#i-alert"/></svg><div class="grow"><b>Your server is running Vanilla.</b> Vanilla can't load mods or plugins (datapacks work). Install <b>Fabric</b> for mods or <b>Paper</b> for plugins.</div><a class="btn sm" href="#software">Open Software</a></div>
+  <div class="banner warn" id="mVanilla" hidden><svg class="ic"><use href="#i-alert"/></svg><div class="grow"><b>Your server is running Vanilla.</b> Vanilla can't load mods or plugins (datapacks work). Install <b>Fabric</b> for mods or <b>Paper</b> for plugins.</div><a class="btn sm" data-href="#software" tabindex="0" role="link">Open Software</a></div>
   <div class="card">
     <div class="card-h">
       <div class="seg" id="mView" role="tablist"><button class="on" data-v="installed">Installed</button><button data-v="browse">Browse Modrinth</button></div>
@@ -571,7 +612,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <section data-page="backups" hidden>
   <div class="card">
     <div class="card-h"><svg class="ic"><use href="#i-archive"/></svg><h3>Backups</h3><span class="muted" id="bInfo" style="font-size:12.5px"></span><button class="btn sm" id="bCreate"><svg class="ic sm"><use href="#i-plus"/></svg>Create backup</button></div>
-    <p class="sub" style="margin:-8px 0 14px">Backs up the current world (overworld, nether and end) into a zip. Safe while the server is running, because Aetheris pauses saving while it copies. Set up automatic backups in <a href="#settings">Settings</a>.</p>
+    <p class="sub" style="margin:-8px 0 14px">Backs up the current world (overworld, nether and end) into a zip. Safe while the server is running, because Aetheris pauses saving while it copies. Set up automatic backups in <a data-href="#settings" tabindex="0" role="link">Settings</a>.</p>
     <div id="bList"></div>
   </div>
 </section>
@@ -600,7 +641,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
   </div>
   <div class="card">
     <div class="card-h"><svg class="ic"><use href="#i-coffee"/></svg><h3>Java</h3><button class="btn ghost sm" id="javaCheck">Check version</button></div>
-    <p class="sub" style="margin-top:-8px">Minecraft 1.20.5+ needs Java 21, and the newest releases may need Java 25. Older versions (1.17–1.20.4) run on Java 17. Change the Java path in <a href="#settings">Settings</a>.</p>
+    <p class="sub" style="margin-top:-8px">Minecraft 1.20.5+ needs Java 21, and the newest releases may need Java 25. Older versions (1.17–1.20.4) run on Java 17. Change the Java path in <a data-href="#settings" tabindex="0" role="link">Settings</a>.</p>
     <pre class="out" id="javaOut" hidden></pre>
   </div>
 </section>
@@ -629,7 +670,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
     <div id="tList" class="tasks"></div>
   </div>
   <div class="card">
-    <div class="card-h"><svg class="ic"><use href="#i-restart"/></svg><h3>Built-in schedules</h3><a href="#settings">Change in Settings</a></div>
+    <div class="card-h"><svg class="ic"><use href="#i-restart"/></svg><h3>Built-in schedules</h3><a data-href="#settings" tabindex="0" role="link">Change in Settings</a></div>
     <div id="tBuiltin"></div>
   </div>
 </section>
@@ -656,13 +697,13 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <h2><svg class="ic"><use href="#i-check"/></svg>First-time setup</h2>
 <p class="lead">Five steps from nothing to a running server.</p>
 <ol class="steps">
-<li><b>Choose your server folder.</b> On first launch, click <i>Choose server folder</i> on the Dashboard, or go to <a href="#settings">Settings → Server folder</a>. Pick the folder with your <code>server.jar</code>. An empty folder works too.</li>
-<li><b>Get server software</b> (if the folder is empty). Open <a href="#software">Software</a>, choose Vanilla, Paper, Purpur or Fabric, pick a version and click <i>Install</i>. Not sure which? <a href="#guide" data-g="g-types">Server types</a> explains each one.</li>
-<li><b>Check Java.</b> On <a href="#software">Software</a>, click <i>Check version</i>. The <a href="#guide" data-g="g-java">Java versions</a> table shows which Java your Minecraft version needs.</li>
+<li><b>Choose your server folder.</b> On first launch, click <i>Choose server folder</i> on the Dashboard, or go to <a data-href="#settings" tabindex="0" role="link">Settings → Server folder</a>. Pick the folder with your <code>server.jar</code>. An empty folder works too.</li>
+<li><b>Get server software</b> (if the folder is empty). Open <a data-href="#software" tabindex="0" role="link">Software</a>, choose Vanilla, Paper, Purpur or Fabric, pick a version and click <i>Install</i>. Not sure which? <a data-href="#guide" tabindex="0" role="link" data-g="g-types">Server types</a> explains each one.</li>
+<li><b>Check Java.</b> On <a data-href="#software" tabindex="0" role="link">Software</a>, click <i>Check version</i>. The <a data-href="#guide" tabindex="0" role="link" data-g="g-java">Java versions</a> table shows which Java your Minecraft version needs.</li>
 <li><b>Accept the EULA.</b> Mojang requires every server owner to agree to the Minecraft EULA. Click <i>I agree</i> on the yellow banner. This writes <code>eula=true</code> into <code>eula.txt</code>.</li>
-<li><b>Click Start.</b> The first start takes longer while the world is generated. When the status turns green and says <b>Online</b>, you're ready. To let friends join over the internet, set up <a href="#guide" data-g="g-playit">playit.gg</a>.</li>
+<li><b>Click Start.</b> The first start takes longer while the world is generated. When the status turns green and says <b>Online</b>, you're ready. To let friends join over the internet, set up <a data-href="#guide" tabindex="0" role="link" data-g="g-playit">playit.gg</a>.</li>
 </ol>
-<div class="tip">Set the server's RAM in <a href="#settings">Settings</a>. On an old PC, 2–3 GB is a good start for a few friends, and modpacks need 4–6 GB. Leave at least 1–2 GB free for Windows.</div>
+<div class="tip">Set the server's RAM in <a data-href="#settings" tabindex="0" role="link">Settings</a>. On an old PC, 2–3 GB is a good start for a few friends, and modpacks need 4–6 GB. Leave at least 1–2 GB free for Windows.</div>
 </div>
 
 <div class="gsec" id="g-daily" data-cat="Start here" data-title="Everyday use">
@@ -690,7 +731,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>Restart</td><td>Stop, then Start.</td></tr>
 <tr><td>Force stop</td><td>Replaces “Stopping…” if a stop takes longer than 15 seconds. Same as Kill.</td></tr>
 <tr><td>Kill</td><td>Ends the Java process (and anything it started) instantly <b>without saving</b>. Use it only if the server is frozen and Stop doesn't work. You lose progress since the last autosave (every 5 minutes by default).</td></tr>
-<tr><td>Back up now</td><td>Makes a zip backup of the current world. See <a href="#guide" data-g="g-backups">Backups</a>.</td></tr></table>
+<tr><td>Back up now</td><td>Makes a zip backup of the current world. See <a data-href="#guide" tabindex="0" role="link" data-g="g-backups">Backups</a>.</td></tr></table>
 <h4>Numbers</h4>
 <ul>
 <li><b>Server RAM</b> is how much memory the Minecraft (Java) process uses right now, measured the same way as Task Manager's “Memory” column. “of X allocated” is your maximum RAM setting. Java often uses a little more than that because of its own overhead. That's normal.</li>
@@ -718,7 +759,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td style="color:#fff">White</td><td>Chat messages.</td></tr>
 <tr><td style="color:#67e8f9">Cyan</td><td>Commands you (or a schedule) sent.</td></tr>
 <tr><td style="color:#c4b5fd">Purple</td><td>Messages from Aetheris itself.</td></tr></table>
-<p>See <a href="#guide" data-g="g-commands">Common commands</a> for useful commands.</p>
+<p>See <a data-href="#guide" tabindex="0" role="link" data-g="g-commands">Common commands</a> for useful commands.</p>
 </div>
 
 <div class="gsec" id="g-options" data-cat="Using the panel" data-title="Server options">
@@ -737,17 +778,17 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>Game mode / Difficulty</td><td>The defaults for new players and the world. Peaceful removes hostile mobs.</td></tr>
 <tr><td>Hardcore</td><td>One life. Players who die become spectators.</td></tr>
 <tr><td>Premium accounts only (online-mode)</td><td>On = only paid Minecraft accounts can join, and their identity is verified by Mojang. Off = “cracked” players can join with any name, which means anyone could pretend to be you. If you turn it off, use a whitelist or an auth plugin.</td></tr>
-<tr><td>Whitelist</td><td>Only players on the list can join. The safest way to keep strangers out. Manage it on <a href="#players">Players</a>.</td></tr>
+<tr><td>Whitelist</td><td>Only players on the list can join. The safest way to keep strangers out. Manage it on <a data-href="#players" tabindex="0" role="link">Players</a>.</td></tr>
 <tr><td>Require secure chat</td><td>Mojang's chat signing. Turn it off if cracked or modded players get kicked when they chat.</td></tr>
 <tr><td>View distance</td><td>How far (in chunks) players can see. Each step up costs a lot more RAM and CPU. 6–8 is a good fit for old PCs.</td></tr>
 <tr><td>Simulation distance</td><td>How far mobs move and crops grow around players. 4–6 saves a lot of CPU.</td></tr>
 <tr><td>Pause when empty</td><td>Freezes the world after this many seconds with nobody online, so the server uses almost no CPU (Minecraft 1.21.2+).</td></tr>
 <tr><td>Spawn protection</td><td>Radius around spawn where only operators can build. Set it to 0 so everyone can build at spawn.</td></tr>
 <tr><td>Allow the End / Nether</td><td>Whether those dimensions exist. <b>Allow the End</b> only exists on Paper, Purpur and Spigot (in <code>bukkit.yml</code>); Vanilla always has the End.</td></tr>
-<tr><td>Seed / World type</td><td>Only used when a <b>new</b> world is generated. Changing them does nothing to an existing world. Use <a href="#worlds">Worlds → Reset</a> for that.</td></tr>
+<tr><td>Seed / World type</td><td>Only used when a <b>new</b> world is generated. Changing them does nothing to an existing world. Use <a data-href="#worlds" tabindex="0" role="link">Worlds → Reset</a> for that.</td></tr>
 <tr><td>Server port</td><td>The network port (default 25565). Your playit.gg tunnel must point to the same port.</td></tr>
 <tr><td>Command blocks</td><td>Command blocks only work if this is on.</td></tr>
-<tr><td>Operator level</td><td>How powerful <code>/op</code> makes someone. See <a href="#guide" data-g="g-players">Players</a>.</td></tr></table>
+<tr><td>Operator level</td><td>How powerful <code>/op</code> makes someone. See <a data-href="#guide" tabindex="0" role="link" data-g="g-players">Players</a>.</td></tr></table>
 <h4>Paper / Spigot options</h4>
 <p>On Paper, Purpur or Spigot, an extra card edits <code>bukkit.yml</code>: <b>spawn limits</b> (fewer mobs = less lag), <b>autosave interval</b> and <b>connection throttle</b>. These appear once the server has started at least once, because that's when the file is created.</p>
 </div>
@@ -795,7 +836,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <li><b>Use this world:</b> switches <code>level-name</code> to another world folder.</li>
 <li><b>New world:</b> picks a new name, seed and type. It's generated on the next start, and your old world is kept.</li>
 <li><b>Reset current world:</b> deletes the current world (all dimensions) and generates a fresh one. Make a backup first!</li>
-<li><b>Upload a world:</b> copy the world folder (the one containing <code>level.dat</code>) into the server folder, or upload it in <a href="#files">Files</a>, then click <i>Use this world</i>.</li>
+<li><b>Upload a world:</b> copy the world folder (the one containing <code>level.dat</code>) into the server folder, or upload it in <a data-href="#files" tabindex="0" role="link">Files</a>, then click <i>Use this world</i>.</li>
 </ul>
 <div class="warn">Worlds can only be changed while the server is <b>offline</b>, because Minecraft keeps them open while it runs.</div>
 <table><tr><th>World type</th><th>What you get</th></tr>
@@ -819,7 +860,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <li><b>.jar:</b> copied into the folder.</li>
 <li><b>.zip of jars:</b> every <code>.jar</code> inside is extracted.</li>
 <li><b>Server pack .zip</b> (contains a <code>mods/</code> or <code>plugins/</code> folder): the whole pack is extracted into your server folder, configs included.</li>
-<li><b>.mrpack</b> (Modrinth modpack): Aetheris downloads every server-side mod in it and applies its config overrides. It then tells you which loader and version the pack needs. Install that in <a href="#software">Software</a>.</li>
+<li><b>.mrpack</b> (Modrinth modpack): Aetheris downloads every server-side mod in it and applies its config overrides. It then tells you which loader and version the pack needs. Install that in <a data-href="#software" tabindex="0" role="link">Software</a>.</li>
 <li><b>Browse Modrinth:</b> search and click Install. Only versions that match your Minecraft version and loader are shown. Required dependencies (like Fabric API) are installed automatically.</li>
 </ul>
 <h4>Managing</h4>
@@ -848,7 +889,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <li>Click the play button to run one immediately and test it.</li>
 <li>The templates are ready-made schedules: announcements, saves, clearing dropped items and restart warnings.</li>
 </ul>
-<p>Daily restarts and automatic backups are in <a href="#settings">Settings</a> and are listed on the Schedules page too.</p>
+<p>Daily restarts and automatic backups are in <a data-href="#settings" tabindex="0" role="link">Settings</a> and are listed on the Schedules page too.</p>
 </div>
 
 <div class="gsec" id="g-software" data-cat="Using the panel" data-title="Software">
@@ -857,7 +898,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <li><b>Installed server jars</b> lists every <code>.jar</code> in your server folder. <i>Use this</i> picks which one starts. <i>Upload .jar</i> adds your own (for example a Forge shim jar).</li>
 <li><b>Install</b> downloads Vanilla, Paper, Purpur or Fabric straight from the official sites and selects it. It applies on the next start, and your worlds aren't touched.</li>
 <li><b>Upgrading versions:</b> back up first. Worlds upgrade to newer versions, but you <b>can't go back</b> to an older version with an upgraded world.</li>
-<li><b>Java:</b> click <i>Check version</i> to see which Java the server uses. See <a href="#guide" data-g="g-java">Java versions</a>.</li>
+<li><b>Java:</b> click <i>Check version</i> to see which Java the server uses. See <a data-href="#guide" tabindex="0" role="link" data-g="g-java">Java versions</a>.</li>
 </ul>
 </div>
 
@@ -883,10 +924,10 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>Connection watchdog</td><td>Every minute, Aetheris checks that the server still answers connections, like the server list does. If it doesn't answer 3 times in a row, the server is restarted.</td></tr>
 <tr><td>Tray notifications</td><td>A Windows pop-up on crashes and automatic restarts.</td></tr>
 <tr><td>Run with Windows</td><td>Starts Aetheris quietly in the tray when you log in.</td></tr>
-<tr><td>Automatic backups / Keep</td><td>See <a href="#guide" data-g="g-backups">Backups</a>.</td></tr>
+<tr><td>Automatic backups / Keep</td><td>See <a data-href="#guide" tabindex="0" role="link" data-g="g-backups">Backups</a>.</td></tr>
 <tr><td>Daily restart</td><td>Restarts the server every day at this time. This clears memory build-up on long-running servers.</td></tr>
 <tr><td>Public address</td><td>Your playit.gg address, shown on the Dashboard.</td></tr>
-<tr><td>playit program / Start with server</td><td>See <a href="#guide" data-g="g-playit">playit.gg</a>.</td></tr>
+<tr><td>playit program / Start with server</td><td>See <a data-href="#guide" tabindex="0" role="link" data-g="g-playit">playit.gg</a>.</td></tr>
 <tr><td>App window / Open on launch / Port</td><td>How the panel opens. The panel only listens on this PC (127.0.0.1).</td></tr></table>
 </div>
 
@@ -896,8 +937,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <ol class="steps">
 <li>Download the playit agent for Windows from <b>playit.gg</b> and install or run it.</li>
 <li>The first time, it shows a <b>claim link</b>. Open it, log in (or create a free account) and approve the agent.</li>
-<li>In the playit dashboard, add a tunnel of type <b>Minecraft Java</b>. Set the local address to <code>127.0.0.1</code> and the local port to <b>25565</b> (or whatever <i>Server port</i> is in <a href="#options">Options</a>).</li>
-<li>playit gives you an address such as <code>something.joinmc.link</code>. Paste it into <a href="#settings">Settings → Public address</a> so it shows on the Dashboard with a copy button.</li>
+<li>In the playit dashboard, add a tunnel of type <b>Minecraft Java</b>. Set the local address to <code>127.0.0.1</code> and the local port to <b>25565</b> (or whatever <i>Server port</i> is in <a data-href="#options" tabindex="0" role="link">Options</a>).</li>
+<li>playit gives you an address such as <code>something.joinmc.link</code>. Paste it into <a data-href="#settings" tabindex="0" role="link">Settings → Public address</a> so it shows on the Dashboard with a copy button.</li>
 <li>Optional: in Settings, set <b>playit program</b> to your <code>playit.exe</code> and turn on <b>Start playit with the server</b>. Aetheris then starts the tunnel with the server, and if the tunnel closes while the server is online, starts it again within a minute (auto-reconnect).</li>
 <li>Friends add your address in Minecraft under Multiplayer → Add Server.</li>
 </ol>
@@ -976,7 +1017,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 
 <div class="gsec" id="g-commands" data-cat="Reference" data-title="Common commands">
 <h2><svg class="ic"><use href="#i-term"/></svg>Common commands</h2>
-<p>Type these in the <a href="#console">Console</a> (no <code>/</code> needed). In-game, operators type them with <code>/</code>.</p>
+<p>Type these in the <a data-href="#console" tabindex="0" role="link">Console</a> (no <code>/</code> needed). In-game, operators type them with <code>/</code>.</p>
 <table><tr><th>Command</th><th>What it does</th></tr>
 <tr><td><code>list</code></td><td>Show who's online.</td></tr>
 <tr><td><code>say Hello!</code></td><td>Broadcast a message to everyone.</td></tr>
@@ -1033,7 +1074,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <li>Turn on <b>Pause when empty</b>, so the server barely uses CPU when nobody's on.</li>
 <li><b>Pre-generate the world</b> with the Chunky plugin or mod (for example <code>chunky radius 2000</code>, then <code>chunky start</code>) while nobody's playing. Exploring new land is the heaviest thing a server does.</li>
 <li>Set a <b>world border</b> so players don't generate endless new chunks.</li>
-<li>Lower the <b>spawn limits</b> (Paper) and clear dropped items with a <a href="#schedules">schedule</a>.</li>
+<li>Lower the <b>spawn limits</b> (Paper) and clear dropped items with a <a data-href="#schedules" tabindex="0" role="link">schedule</a>.</li>
 <li>Give the server <b>enough RAM but not too much</b>: 2–4 GB for small servers. Leave 1–2 GB for Windows.</li>
 <li>Keep the <b>optimized JVM flags</b> on, and use a <b>daily restart</b>.</li>
 <li>Put the server folder on an <b>SSD</b> if you have one.</li>
@@ -1045,12 +1086,12 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <h2><svg class="ic"><use href="#i-alert"/></svg>Troubleshooting</h2>
 <table><tr><th>Problem</th><th>Fix</th></tr>
 <tr><td>“Could not launch Java”</td><td>Java isn't installed or isn't on PATH. Install it, or set the full path to <code>java.exe</code> in Settings.</td></tr>
-<tr><td><code>UnsupportedClassVersionError</code></td><td>Your Java is too old for this Minecraft version. See <a href="#guide" data-g="g-java">Java versions</a>.</td></tr>
+<tr><td><code>UnsupportedClassVersionError</code></td><td>Your Java is too old for this Minecraft version. See <a data-href="#guide" tabindex="0" role="link" data-g="g-java">Java versions</a>.</td></tr>
 <tr><td>“You need to agree to the EULA”</td><td>Click <i>I agree</i> on the Dashboard.</td></tr>
 <tr><td>“Failed to bind to port”</td><td>Another server (or another copy of this one) is already using that port. Stop it, or change <i>Server port</i>.</td></tr>
 <tr><td>Server crashes right after adding a mod or plugin</td><td>Disable the newest one on the Mods page and restart. Check that it matches your Minecraft version and loader.</td></tr>
 <tr><td><code>OutOfMemoryError</code></td><td>Raise Maximum RAM in Settings, or remove heavy mods.</td></tr>
-<tr><td>“Can't keep up! Is the server overloaded?”</td><td>A lag spike. If it happens constantly, follow the <a href="#guide" data-g="g-perf">performance tips</a>.</td></tr>
+<tr><td>“Can't keep up! Is the server overloaded?”</td><td>A lag spike. If it happens constantly, follow the <a data-href="#guide" tabindex="0" role="link" data-g="g-perf">performance tips</a>.</td></tr>
 <tr><td>Friends can't connect</td><td>Server Online? playit agent running? Tunnel local port = Server port? Same Minecraft version?</td></tr>
 <tr><td>“Failed to verify username”</td><td>A cracked player on a premium-only server. Turn off <i>Premium accounts only</i>, or use a premium account.</td></tr>
 <tr><td>Kicked for chat / “invalid signature”</td><td>Turn off <i>Require secure chat</i>.</td></tr>
@@ -1235,7 +1276,8 @@ function renderState(s){
   document.body.dataset.state=s.state;
   const pill=$('#statePill');pill.className='pill '+cls;pill.lastChild.textContent=label;
   $('#sideDot').className='dot '+cls;$('#sideState').textContent=label;
-  $('#sidePlayers').textContent=s.state==='online'?`${s.players.length}/${s.max} players`:'';
+  const cnt=s.online!=null?s.online:s.players.length;S.cnt=cnt;
+  $('#sidePlayers').textContent=s.state==='online'?`${cnt}/${s.max} players`:'';
   if(s.state==='stopping'){if(!S.stopSince)S.stopSince=Date.now()}else S.stopSince=0;
   S.forceStop=s.state==='stopping'&&Date.now()-S.stopSince>15000;
   $$('.pw-main').forEach(b=>{
@@ -1253,7 +1295,7 @@ function renderState(s){
   $('#heroMotd').innerHTML=motdHtml(s.motd);
   $('#addr').textContent=s.address||('localhost'+(s.port&&s.port!=='25565'?':'+s.port:''));
   const pb=$('#playitBadge');pb.hidden=s.playit==null;if(s.playit!=null){pb.className='badge '+(s.playit?'g':'n');pb.textContent=s.playit?'playit running':'playit stopped'}
-  $('#stPlayers').textContent=`${s.players.length} / ${s.max}`;
+  $('#stPlayers').innerHTML=`${cnt} / ${esc(s.max)}${s.state==='online'&&s.ping!=null&&s.ping>=0?`<small title="Response time of the server to a status check">${s.ping} ms</small>`:''}`;
   $('#stVersion').textContent=s.version||(s.jar?s.jar.replace(/\.jar$/i,''):'—');
   $('#stVersion').title=s.jar||'';
   $('#stUptime').textContent=s.state==='offline'?'—':fmtUp(s.uptime);
@@ -1261,12 +1303,12 @@ function renderState(s){
   const pend=s.pending||[];$('#restartBar').hidden=!pend.length||s.state==='offline';
   $('#restartWhat').textContent=pend.length?pend.join(', ').replace(/^./,c=>c.toUpperCase()):'';
   const nt=$('#navTasks');nt.hidden=!s.tasks;nt.textContent=s.tasks;
-  const nb=$('#navPlayers');nb.hidden=!(s.state==='online'&&s.players.length);nb.textContent=s.players.length;
+  const nb=$('#navPlayers');nb.hidden=!(s.state==='online'&&cnt);nb.textContent=cnt;
   const lk=loaderKind(s.loader);$('#navMods').textContent=lk==='plugins'?'Plugins':lk==='mods'?'Mods':'Mods & plugins';
   $('#loaderBadge').textContent=s.loader==='vanilla'?'Vanilla':s.loader;
   if(s.icon!==prev.icon||S.iconV===undefined){S.iconV=Date.now()}
   const hi=$('#heroIcon');hi.hidden=!s.icon;$('#heroOrb').hidden=!!s.icon;if(s.icon&&hi.dataset.v!=S.iconV){hi.src='/api/icon?v='+S.iconV;hi.dataset.v=S.iconV}
-  $('#dashPlayers').innerHTML=s.players.length?s.players.map(p=>`<span class="chip">${avatar(p)}${esc(p)}</span>`).join(''):`<span class="muted">${s.state==='online'?'Nobody is online right now.':'The server is offline.'}</span>`;
+  $('#dashPlayers').innerHTML=s.players.length?s.players.map(p=>`<span class="chip">${avatar(p)}${esc(p)}</span>`).join('')+(cnt>s.players.length?`<span class="chip" style="padding-left:12px">+${cnt-s.players.length} more</span>`:''):cnt>0?`<span class="muted">${cnt} player${cnt>1?'s':''} online (names hidden by the server)</span>`:`<span class="muted">${s.state==='online'?'Nobody is online right now.':'The server is offline.'}</span>`;
   $('#setupCard').hidden=s.configured;
   $('#eulaCard').hidden=!s.configured||s.eula;
   $('#grOffline').hidden=s.state!=='offline';
@@ -1332,7 +1374,7 @@ async function power(a,btn){
   poll();
 }
 async function acceptEula(){
-  const ok=await modal({title:'Minecraft EULA',html:'<p>To run a Minecraft server you must agree to the <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noopener">Minecraft End User License Agreement</a>.</p><p>Do you agree to it?</p>',ok:'I agree'});
+  const ok=await modal({title:'Minecraft EULA',html:'<p>To run a Minecraft server you must agree to the <a data-href="https://aka.ms/MinecraftEULA" tabindex="0" role="link">Minecraft End User License Agreement</a>.</p><p>Do you agree to it?</p>',ok:'I agree'});
   if(!ok)return false;
   try{await api('eula',{});toast('EULA accepted.');await poll();return true}catch(e){toast(e.message,'err');return false}
 }
@@ -1803,7 +1845,7 @@ LOAD.backups=async()=>{
     const total=d.backups.reduce((a,b)=>a+b.size,0);
     $('#bInfo').textContent=d.backups.length?`${d.backups.length} backups · ${fmtB(total)}`:'';
     $('#bList').innerHTML=d.backups.length?'<div class="list">'+d.backups.map(b=>`<div class="li"><span class="av">${ic('archive')}</span><div class="grow"><div class="nm">${esc(b.name)}</div><div class="meta">${fmtD(b.time)} · ${fmtB(b.size)} ${b.auto?'· automatic':''}</div></div><div class="acts">
-      <a class="icon-btn" href="/api/download?backup=${encodeURIComponent(b.name)}" title="Download" aria-label="Download">${ic('down','')}</a>
+      <a class="icon-btn" data-href="/api/download?backup=${encodeURIComponent(b.name)}" tabindex="0" role="link" title="Download" aria-label="Download">${ic('down','')}</a>
       <button class="btn ghost sm" data-b="restore" data-n="${esc(b.name)}">${ic('restart')}Restore</button>
       <button class="icon-btn danger" data-b="delete" data-n="${esc(b.name)}" title="Delete" aria-label="Delete backup">${ic('trash','')}</button></div></div>`).join('')+'</div>'
       :`<div class="empty">${ic('archive','')}<div>No backups yet. Create one before you make big changes.</div></div>`;
@@ -1891,7 +1933,7 @@ LOAD.files=async p=>{
     $('#fList').innerHTML=d.items.length?'<div class="list">'+d.items.map(f=>{const rp=(d.path?d.path+'/':'')+f.name;
       return `<div class="li fi" data-f="${esc(rp)}" data-dir="${f.dir}" data-text="${!!f.text}"><span class="ficon ${f.dir?'d':''}">${ic(f.dir?'folder':'file','')}</span><div class="grow"><div class="nm">${esc(f.name)}</div><div class="meta">${f.dir?'Folder':fmtB(f.size)} · ${fmtD(f.modified)}</div></div><div class="acts">
       ${f.text?`<button class="icon-btn" data-fa="edit" title="Edit" aria-label="Edit">${ic('edit','')}</button>`:''}
-      ${f.dir?'':`<a class="icon-btn" href="/api/download?path=${encodeURIComponent(rp)}" title="Download" aria-label="Download">${ic('down','')}</a>`}
+      ${f.dir?'':`<a class="icon-btn" data-href="/api/download?path=${encodeURIComponent(rp)}" tabindex="0" role="link" title="Download" aria-label="Download">${ic('down','')}</a>`}
       <button class="icon-btn" data-fa="rename" title="Rename" aria-label="Rename">${ic('cmd','')}</button>
       <button class="icon-btn danger" data-fa="delete" title="Delete" aria-label="Delete">${ic('trash','')}</button></div></div>`}).join('')+'</div>'
       :`<div class="empty">${ic('folder','')}<div>This folder is empty.</div></div>`;
@@ -2019,7 +2061,7 @@ $('#tList').addEventListener('change',e=>{const t=e.target.closest('[data-tt]');
 /* ---------- guide ---------- */
 (function(){
   const secs=$$('.gsec');let cat='',h='';
-  for(const s of secs){if(s.dataset.cat!==cat){cat=s.dataset.cat;h+=`<div class="gcat">${esc(cat)}</div>`}h+=`<a href="#guide" data-g="${s.id}">${esc(s.dataset.title)}</a>`}
+  for(const s of secs){if(s.dataset.cat!==cat){cat=s.dataset.cat;h+=`<div class="gcat">${esc(cat)}</div>`}h+=`<a data-href="#guide" tabindex="0" role="link" data-g="${s.id}">${esc(s.dataset.title)}</a>`}
   $('#gTocList').innerHTML=h;
   $('#gSearch').oninput=e=>{
     const q=e.target.value.trim().toLowerCase();
@@ -2048,6 +2090,16 @@ document.addEventListener('keydown',e=>{
   if(e.key==='/'){e.preventDefault();if(S.page!=='console')location.hash='#console';setTimeout(()=>$('#cmdInput').focus(),30)}
   else if(e.key==='?'){e.preventDefault();location.hash='#guide';setTimeout(()=>$('#gSearch').focus(),30)}
 });
+
+/* ---------- links without URLs (no hover bubble) ---------- */
+function follow(el){
+  const h=el.dataset.href;
+  if(h.startsWith('#'))location.hash=h;
+  else if(h.startsWith('/api/download')){const a=document.createElement('a');a.href=h;a.download='';document.body.append(a);a.click();a.remove()}
+  else window.open(h,'_blank','noopener');
+}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-href]');if(!a||e.defaultPrevented||e.button!==0)return;e.preventDefault();follow(a)});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.closest)return;const a=e.target.closest('[data-href]');if(a&&!e.defaultPrevented){e.preventDefault();follow(a)}});
 
 /* ---------- boot ---------- */
 go();poll();consoleLoop();

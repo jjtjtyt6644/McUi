@@ -23,14 +23,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.3.0.0")]
-[assembly: AssemblyFileVersion("1.3.0.0")]
+[assembly: AssemblyVersion("1.4.0.0")]
+[assembly: AssemblyFileVersion("1.4.0.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.3.0";
+        public const string Version = "1.4.0";
 
         [STAThread]
         static void Main(string[] args)
@@ -723,6 +723,111 @@ namespace Aetheris
         static readonly Regex DoneRe = new Regex(@"\]: Done \(|For help, type ""help""");
 
         public static bool Running { get { lock (L) return proc != null; } }
+
+        static void SetPlayersFromList(Match m)
+        {
+            players.Clear();
+            foreach (var n in m.Groups[3].Value.Split(','))
+            {
+                var t = Regex.Replace(n.Trim(), @"^\S+:\s*", "");   // Bukkit "group: name"
+                if (Regex.IsMatch(t, @"^[A-Za-z0-9_.]{1,17}$")) players.Add(t);
+            }
+            int c;
+            if (int.TryParse(m.Groups[1].Value, out c)) liveOnline = c;
+        }
+
+        // ---- live player data (server list ping), only queried while the panel is open
+        static bool quietList; static DateTime quietUntil, lastQuiet, lastLive;
+        static int liveOnline = -1, liveMax = -1, livePing = -1;
+
+        public static Dictionary<string, object> Live()
+        {
+            if (State != "online") { liveOnline = liveMax = livePing = -1; return null; }
+            if ((DateTime.Now - lastLive).TotalSeconds >= 2.5)
+            {
+                lastLive = DateTime.Now;
+                int port; if (!int.TryParse(Props.Get("server-port", "25565"), out port)) port = 25565;
+                var ip = Props.Get("server-ip", "");
+                var sw = Stopwatch.StartNew();
+                var st = Status(ip == "" ? "127.0.0.1" : ip, port, 2500);
+                if (st != null)
+                {
+                    livePing = (int)sw.ElapsedMilliseconds;
+                    var pl = st.ContainsKey("players") ? st["players"] as Dictionary<string, object> : null;
+                    if (pl != null)
+                    {
+                        liveOnline = Convert.ToInt32(pl.ContainsKey("online") ? pl["online"] : 0);
+                        liveMax = Convert.ToInt32(pl.ContainsKey("max") ? pl["max"] : 0);
+                        var sample = (pl.ContainsKey("sample") ? pl["sample"] as object[] : null) ?? new object[0];
+                        var names = sample.OfType<Dictionary<string, object>>().Select(x => Convert.ToString(x.ContainsKey("name") ? x["name"] : ""))
+                            .Where(n => Regex.IsMatch(n, @"^[A-Za-z0-9_.]{1,17}$") && n != "Anonymous Player").ToList();
+                        bool changed = false;
+                        lock (L)
+                        {
+                            if (names.Count == liveOnline && names.Count > 0 && !(names.All(players.Contains) && players.Count == names.Count))
+                            {
+                                players.Clear(); players.AddRange(names); changed = true;
+                            }
+                            else if (liveOnline == 0 && players.Count > 0) { players.Clear(); changed = true; }
+                            else if (players.Count != liveOnline && (DateTime.Now - lastQuiet).TotalSeconds > 10)
+                            {
+                                // counts disagree and the ping didn't list everyone: re-sync names with a quiet "list"
+                                lastQuiet = DateTime.Now; quietList = true; quietUntil = DateTime.Now.AddSeconds(4);
+                                Send("list", false);
+                            }
+                        }
+                        if (changed) Fire();
+                    }
+                }
+                else livePing = -1;
+            }
+            if (liveOnline < 0) return null;
+            return Jsn.D("online", liveOnline, "max", liveMax, "ping", livePing);
+        }
+
+        static int ReadVarInt(Stream s)
+        {
+            int v = 0, shift = 0;
+            while (true)
+            {
+                int b = s.ReadByte();
+                if (b < 0) throw new IOException("eof");
+                v |= (b & 0x7F) << shift;
+                if ((b & 0x80) == 0) return v;
+                shift += 7;
+                if (shift > 35) throw new IOException("varint");
+            }
+        }
+
+        // Full "server list ping": returns the status JSON the multiplayer screen shows (players online, max, sample names).
+        public static Dictionary<string, object> Status(string host, int port, int timeoutMs)
+        {
+            try
+            {
+                using (var c = new TcpClient())
+                {
+                    var ar = c.BeginConnect(host, port, null, null);
+                    if (!ar.AsyncWaitHandle.WaitOne(timeoutMs)) return null;
+                    c.EndConnect(ar);
+                    c.ReceiveTimeout = timeoutMs; c.SendTimeout = timeoutMs;
+                    var body = new List<byte>();
+                    VarInt(body, 0); VarInt(body, -1);
+                    var hb = Encoding.UTF8.GetBytes(host); VarInt(body, hb.Length); body.AddRange(hb);
+                    body.Add((byte)(port >> 8)); body.Add((byte)port); VarInt(body, 1);
+                    var pkt = new List<byte>(); VarInt(pkt, body.Count); pkt.AddRange(body); pkt.Add(1); pkt.Add(0);
+                    var s = c.GetStream();
+                    s.Write(pkt.ToArray(), 0, pkt.Count);
+                    ReadVarInt(s);                       // packet length
+                    if (ReadVarInt(s) != 0) return null; // packet id
+                    int len = ReadVarInt(s);
+                    if (len <= 0 || len > 1 << 20) return null;
+                    var buf = new byte[len]; int off = 0;
+                    while (off < len) { int n = s.Read(buf, off, len - off); if (n <= 0) return null; off += n; }
+                    return Jsn.S.DeserializeObject(Encoding.UTF8.GetString(buf)) as Dictionary<string, object>;
+                }
+            }
+            catch { return null; }
+        }
         static void Fire() { var c = Changed; if (c != null) try { c(); } catch { } }
 
         public static string[] PlayerList() { lock (L) return players.ToArray(); }
@@ -883,8 +988,15 @@ namespace Aetheris
             bool changed = false;
             lock (L)
             {
-                AddLine(line);
                 Match m;
+                if (quietList && DateTime.Now < quietUntil && (m = ListRe.Match(line)).Success)
+                {
+                    quietList = false;
+                    SetPlayersFromList(m);
+                    Fire();
+                    return;   // background re-sync: keep it out of the console
+                }
+                AddLine(line);
                 if (State == "starting" && DoneRe.IsMatch(line)) { State = "online"; changed = true; }
                 if ((m = VerRe.Match(line)).Success) Version = m.Groups[1].Value;
                 if ((m = JoinRe.Match(line)).Success)
@@ -894,16 +1006,7 @@ namespace Aetheris
                     changed = true;
                 }
                 else if ((m = LeftRe.Match(line)).Success) { players.Remove(m.Groups[1].Value); changed = true; }
-                else if ((m = ListRe.Match(line)).Success)
-                {
-                    players.Clear();
-                    foreach (var n in m.Groups[3].Value.Split(','))
-                    {
-                        var t = n.Trim();
-                        if (Regex.IsMatch(t, @"^[A-Za-z0-9_.]{1,17}$")) players.Add(t);
-                    }
-                    changed = true;
-                }
+                else if ((m = ListRe.Match(line)).Success) { SetPlayersFromList(m); changed = true; }
             }
             if (changed) Fire();
         }
@@ -2293,12 +2396,14 @@ namespace Aetheris
         {
             long ram; double cpu;
             Server.Stats(out ram, out cpu);
+            var live = Server.Live();
             var p = Props.Read();
             string v;
             var c = App.Cfg;
             return Jsn.D(
                 "state", Server.State, "players", Server.PlayerList(),
-                "max", p.TryGetValue("max-players", out v) ? v : "20",
+                "max", live != null && (int)live["max"] > 0 ? (object)live["max"] : (p.TryGetValue("max-players", out v) ? v : "20"),
+                "online", live != null ? live["online"] : null, "ping", live != null ? live["ping"] : null,
                 "motd", p.TryGetValue("motd", out v) ? v : "A Minecraft Server",
                 "port", p.TryGetValue("server-port", out v) ? v : "25565",
                 "version", Server.Version,
