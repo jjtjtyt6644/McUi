@@ -1,0 +1,44 @@
+# Aetheris
+
+A lightweight Minecraft server panel for Windows. It gives you Aternos-style controls for the server you host yourself, so you don't have to work in a command prompt.
+
+- **Dashboard:** big Start/Stop button, status, address with a copy button, players, version, uptime, CPU and RAM
+- **Console:** live, colour-coded log, command box with history (↑/↓) and quick commands
+- **Options:** every important `server.properties` setting as toggles and sliders, plus a MOTD editor with colour codes and a live preview
+- **Game rules:** keepInventory, mobGriefing, daylight cycle and more, applied instantly
+- **Players:** online players (op/kick/ban), whitelist, operators, bans and IP bans. Works offline too, with premium UUID lookup
+- **Worlds:** switch, create, reset (new seed or type) and delete worlds
+- **Backups:** one-click zip backups that are safe while running, plus restore, download and automatic backups
+- **Software:** one-click install of Vanilla, Paper, Purpur or Fabric (any version), switch jars, check Java
+- **Files:** browse, edit, upload, download, rename and delete files in the server folder
+- **Settings:** RAM, Java path, optimized JVM flags, crash auto-restart, start with Windows, daily restart, playit.gg
+
+## Install
+
+1. Copy `dist\Aetheris.exe` and `dist\Aetheris.exe.config` anywhere. Your server folder is a good place.
+2. Double-click `Aetheris.exe`. The panel opens and a crystal icon appears in the system tray.
+3. Choose your server folder, click **I agree** on the EULA banner, then click **Start**.
+
+Nothing to install: it uses the .NET Framework that's already built into Windows 10 and 11.
+
+## Low resource use
+
+- The panel window is just a view. **Close it any time**, and the server keeps running.
+- Aetheris itself stays in the tray. About 10 seconds after the panel closes, it trims its memory to a few MB.
+- No timers run while idle (one check per minute for scheduled backups and restarts), so CPU and GPU use is 0%.
+- The panel window pauses all updates while it's minimized or hidden.
+- Right-click the tray icon to Start, Stop, Restart or Exit. Exiting saves and stops the server first.
+
+## playit.gg
+
+Put your tunnel address (for example `something.joinmc.link`) in **Settings → playit.gg & address**. It then shows on the dashboard for easy copying. You can also point Aetheris at `playit.exe` so the tunnel starts with the server. Make sure **Options → Server port** matches the tunnel's local port (default 25565).
+
+## Build from source
+
+```
+powershell -ExecutionPolicy Bypass -File build.ps1
+```
+
+This compiles `src\Aetheris.cs` with the C# compiler that ships with Windows. `src\index.html` is embedded into the exe.
+
+The panel only listens on `127.0.0.1`, so nobody else on your network or the internet can open it.
