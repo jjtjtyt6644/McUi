@@ -5,11 +5,14 @@ A lightweight Minecraft server panel for Windows. It gives you Aternos-style con
 - **Dashboard:** big Start/Stop button, status, server icon, address with a copy button, players, version, uptime, free PC memory, and live **server RAM and CPU graphs** (RAM measured the same way as Task Manager)
 - **Mods & plugins:** drag and drop `.jar`, `.zip` (loose jars or whole server packs with configs) and Modrinth `.mrpack` modpacks. Browse and install from Modrinth with required dependencies installed automatically. Enable or disable each one. Datapacks too.
 - **Auto-reconnect:** the panel reconnects to Aetheris by itself, the playit.gg tunnel is restarted if it closes, and a connection watchdog restarts the server if it stops accepting players. Tray pop-ups on crashes.
-- **Console:** live, colour-coded log, command box with history (↑/↓) and quick commands
+- **Console:** live, colour-coded log, search and filters (warnings, errors, chat, joins), log download, command box with history (↑/↓) and quick commands
 - **Options:** every important `server.properties` setting as toggles and sliders (including pause-when-empty, spawn monsters and file compression), a MOTD editor with colour codes and a live preview, and server icon upload. On Paper, Purpur or Spigot you also get **Allow the End**, spawn limits, autosave interval and connection throttle (`bukkit.yml`).
 - **Game rules:** keepInventory, mobGriefing, daylight cycle and more, applied instantly
 - **Players:** online players (op/kick/ban), whitelist, operators, bans and IP bans. Works offline too, with premium UUID lookup
 - **Worlds:** switch, create, reset (new seed or type) and delete worlds
+- **Schedules:** run commands automatically every X minutes or daily at a set time (announcements, saves, clearing items), with ready-made templates
+- **Guide:** built-in, searchable documentation covering every feature, playit.gg setup, what applies when, Java versions, commands, performance tips and troubleshooting
+- **Restart reminder:** a yellow bar on every page shows which changes still need a restart, until you restart
 - **Backups:** one-click zip backups that are safe while running, plus restore, download and automatic backups
 - **Software:** one-click install of Vanilla, Paper, Purpur or Fabric (any version), switch jars, check Java
 - **Files:** browse, edit, upload, download, rename and delete files in the server folder

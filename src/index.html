@@ -272,6 +272,42 @@ body[data-state=starting] .hero-icon,body[data-state=stopping] .hero-icon{border
 .icon-prev{width:64px;height:64px;border-radius:10px;image-rendering:pixelated;background:#1b1b1b;border:1px solid var(--line2);flex:none;display:grid;place-items:center;color:var(--dim)}
 .li.off .nm,.li.off .meta{opacity:.5}
 .card-h .seg{margin-left:auto}
+/* v3 */
+.restart{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#2a1d06,#1f1a0c);border-bottom:1px solid #78350f;color:#fde68a;padding:9px 28px;font-size:13px}
+.restart .ic{color:#fbbf24}
+.term div.f-hide{display:none}
+.term mark{background:#8b5cf655;color:#fff;border-radius:2px}
+.ctool{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.ctool input{flex:1;min-width:160px}
+kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--text)}
+.guide{display:grid;grid-template-columns:230px minmax(0,1fr);gap:22px;align-items:start}
+.gtoc{position:sticky;top:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px;max-height:calc(100vh - 140px);overflow:auto}
+.gtoc input{width:100%;margin-bottom:10px}
+.gtoc a{display:block;padding:6px 10px;border-radius:8px;color:var(--muted);font-size:13px;font-weight:500}
+.gtoc a:hover{background:var(--hover);color:var(--text);text-decoration:none}
+.gtoc a.on{background:#8b5cf61f;color:#fff}
+.gtoc .gcat{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--dim);font-weight:700;padding:10px 10px 4px}
+.gsec{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:22px 26px;margin-bottom:16px;scroll-margin-top:10px;line-height:1.65}
+.gsec h2{font-size:19px;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.gsec h2 .ic{color:#a78bfa}
+.gsec .lead{color:var(--muted);margin:0 0 14px}
+.gsec h4{font-size:14px;margin:18px 0 6px;color:#fff}
+.gsec p{margin:0 0 10px;color:#c9cfdf}
+.gsec ul,.gsec ol{margin:0 0 12px;padding-left:22px;color:#c9cfdf}
+.gsec li{margin:3px 0}
+.gsec code{font:12.5px var(--mono);background:#ffffff0d;border-radius:5px;padding:1px 5px;color:#e9d5ff}
+.gsec table{width:100%;border-collapse:collapse;margin:6px 0 14px;font-size:13px}
+.gsec th{text-align:left;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line2);padding:7px 8px}
+.gsec td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top;color:#c9cfdf}
+.gsec .tip{background:#8b5cf612;border:1px solid #8b5cf633;border-radius:10px;padding:10px 14px;margin:10px 0;color:#ddd6fe;font-size:13.5px}
+.gsec .warn{background:#f59e0b10;border:1px solid #f59e0b38;border-radius:10px;padding:10px 14px;margin:10px 0;color:#fde68a;font-size:13.5px}
+.gsec .steps{counter-reset:st;list-style:none;padding:0}
+.gsec .steps li{counter-increment:st;position:relative;padding-left:36px;margin:10px 0}
+.gsec .steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:24px;height:24px;border-radius:50%;background:var(--grad);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center}
+.ghit{display:none}
+.tasks .li{align-items:flex-start}
+.tasks pre{margin:4px 0 0;font:12px var(--mono);color:#cbd2e4;white-space:pre-wrap}
+@media (max-width:980px){.guide{grid-template-columns:1fr}.gtoc{position:static;max-height:none}}
 @media (max-width:1180px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.types{grid-template-columns:repeat(2,minmax(0,1fr))}.mgrid{grid-template-columns:1fr}}
 @media (max-width:760px){.perf{grid-template-columns:1fr}}
 @media (max-width:980px){.opts,.grid2{grid-template-columns:1fr}}
@@ -359,9 +395,11 @@ body[data-state=starting] .hero-icon,body[data-state=stopping] .hero-icon{border
       <a href="#mods" data-nav="mods"><svg class="ic"><use href="#i-puzzle"/></svg><span id="navMods">Mods &amp; plugins</span></a>
       <div class="nav-sep">Manage</div>
       <a href="#backups" data-nav="backups"><svg class="ic"><use href="#i-archive"/></svg>Backups</a>
+      <a href="#schedules" data-nav="schedules"><svg class="ic"><use href="#i-clock"/></svg>Schedules<span class="nbadge" id="navTasks" style="background:#8b5cf622;color:#c4b5fd" hidden></span></a>
       <a href="#software" data-nav="software"><svg class="ic"><use href="#i-box"/></svg>Software</a>
       <a href="#files" data-nav="files"><svg class="ic"><use href="#i-folder"/></svg>Files</a>
       <a href="#settings" data-nav="settings"><svg class="ic"><use href="#i-gear"/></svg>Settings</a>
+      <a href="#guide" data-nav="guide"><svg class="ic"><use href="#i-book"/></svg>Guide</a>
     </nav>
     <div class="side-foot">
       <div class="row"><span class="dot" id="sideDot"></span><span id="sideState">Offline</span><span class="sp"></span><span id="sidePlayers"></span></div>
@@ -379,6 +417,7 @@ body[data-state=starting] .hero-icon,body[data-state=stopping] .hero-icon{border
       <span class="pill" id="statePill"><span class="dot"></span><span>Offline</span></span>
       <button class="btn sm pw-main ok" data-power="main" id="topPower"><svg class="ic sm"><use href="#i-play"/></svg><span>Start</span></button>
     </header>
+    <div class="restart" id="restartBar" role="status" hidden><svg class="ic"><use href="#i-restart"/></svg><div class="grow"><b>Restart needed.</b> <span id="restartWhat"></span> will apply after the server restarts.</div><button class="btn sm warn" data-power="restart"><svg class="ic sm"><use href="#i-restart"/></svg>Restart now</button></div>
 
     <div class="content" id="content">
 <!-- ============ DASHBOARD ============ -->
@@ -443,6 +482,11 @@ body[data-state=starting] .hero-icon,body[data-state=stopping] .hero-icon{border
 
 <!-- ============ CONSOLE ============ -->
 <section data-page="console" hidden>
+  <div class="ctool">
+    <input type="search" id="cFilter" placeholder="Search the console…" spellcheck="false" aria-label="Search console">
+    <div class="seg" id="cLevel"><button class="on" data-l="">All</button><button data-l="l-warn">Warnings</button><button data-l="l-err">Errors</button><button data-l="l-chat">Chat</button><button data-l="l-join">Joins</button></div>
+    <a class="btn ghost sm" href="/api/download?path=logs/latest.log" title="Download logs/latest.log"><svg class="ic sm"><use href="#i-down"/></svg>Log file</a>
+  </div>
   <div class="qc" id="quickCmds"></div>
   <div class="term" id="term" tabindex="0" aria-live="off"></div>
   <form class="cmdbar" id="cmdForm" autocomplete="off">
@@ -575,6 +619,460 @@ body[data-state=starting] .hero-icon,body[data-state=stopping] .hero-icon{border
   </div>
 </section>
 
+<!-- ============ SCHEDULES ============ -->
+<section data-page="schedules" hidden>
+  <div class="banner info"><svg class="ic"><use href="#i-info"/></svg><div class="grow">Schedules run console commands for you, like announcements, saves or clearing dropped items. They only run while the server is <b>online</b>, and Aetheris checks them once a minute.</div></div>
+  <div class="card">
+    <div class="card-h"><svg class="ic"><use href="#i-clock"/></svg><h3>Scheduled commands</h3><button class="btn sm" id="tAdd"><svg class="ic sm"><use href="#i-plus"/></svg>New schedule</button></div>
+    <div class="qc" id="tTemplates"></div>
+    <div id="tList" class="tasks"></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><svg class="ic"><use href="#i-restart"/></svg><h3>Built-in schedules</h3><a href="#settings">Change in Settings</a></div>
+    <div id="tBuiltin"></div>
+  </div>
+</section>
+
+<!-- ============ GUIDE ============ -->
+<section data-page="guide" hidden>
+<div class="guide">
+  <nav class="gtoc" id="gToc" aria-label="Guide contents"><input type="search" id="gSearch" placeholder="Search the guide…" aria-label="Search the guide"><div id="gTocList"></div></nav>
+  <div id="gBody">
+
+<div class="gsec" id="g-overview" data-cat="Start here" data-title="What is Aetheris?">
+<h2><svg class="ic"><use href="#i-info"/></svg>What is Aetheris?</h2>
+<p class="lead">A control panel for the Minecraft server running on your own PC. It does what Aternos does, but your server stays yours.</p>
+<p>Aetheris has two parts:</p>
+<ul>
+<li><b>The tray app</b> (<code>Aetheris.exe</code>) runs your Minecraft server (Java), reads its log, edits its files and runs schedules. It sits in the system tray next to the clock and uses about 2 MB of RAM and 0% CPU while idle.</li>
+<li><b>This panel</b> is just a window onto the tray app. You can close it whenever you like and the server keeps running. Open it again from the tray icon.</li>
+</ul>
+<p>Everything Aetheris changes is a normal Minecraft file in your server folder (<code>server.properties</code>, <code>whitelist.json</code>, <code>mods/</code> and so on). No data is uploaded anywhere. If you stop using Aetheris, your server works exactly as before.</p>
+<div class="tip">The tray icon: <b>left-click</b> opens the panel. <b>Right-click</b> gives Start, Stop, Restart, Open server folder and Exit. Exit always saves and stops the server first.</div>
+</div>
+
+<div class="gsec" id="g-setup" data-cat="Start here" data-title="First-time setup">
+<h2><svg class="ic"><use href="#i-check"/></svg>First-time setup</h2>
+<p class="lead">Five steps from nothing to a running server.</p>
+<ol class="steps">
+<li><b>Choose your server folder.</b> On first launch, click <i>Choose server folder</i> on the Dashboard, or go to <a href="#settings">Settings → Server folder</a>. Pick the folder with your <code>server.jar</code>. An empty folder works too.</li>
+<li><b>Get server software</b> (if the folder is empty). Open <a href="#software">Software</a>, choose Vanilla, Paper, Purpur or Fabric, pick a version and click <i>Install</i>. Not sure which? <a href="#guide" data-g="g-types">Server types</a> explains each one.</li>
+<li><b>Check Java.</b> On <a href="#software">Software</a>, click <i>Check version</i>. The <a href="#guide" data-g="g-java">Java versions</a> table shows which Java your Minecraft version needs.</li>
+<li><b>Accept the EULA.</b> Mojang requires every server owner to agree to the Minecraft EULA. Click <i>I agree</i> on the yellow banner. This writes <code>eula=true</code> into <code>eula.txt</code>.</li>
+<li><b>Click Start.</b> The first start takes longer while the world is generated. When the status turns green and says <b>Online</b>, you're ready. To let friends join over the internet, set up <a href="#guide" data-g="g-playit">playit.gg</a>.</li>
+</ol>
+<div class="tip">Set the server's RAM in <a href="#settings">Settings</a>. On an old PC, 2–3 GB is a good start for a few friends, and modpacks need 4–6 GB. Leave at least 1–2 GB free for Windows.</div>
+</div>
+
+<div class="gsec" id="g-daily" data-cat="Start here" data-title="Everyday use">
+<h2><svg class="ic"><use href="#i-play"/></svg>Everyday use</h2>
+<ul>
+<li><b>Start / Stop:</b> the big button on the Dashboard, the small one in the top bar, or the tray menu.</li>
+<li><b>Restart:</b> saves the world, stops the server, then starts it again. Most setting changes need one. When they do, a yellow <b>Restart needed</b> bar appears at the top of every page and stays until you restart.</li>
+<li><b>Run Aetheris with Windows</b> (Settings) plus <b>Start the server when Aetheris opens</b> means your server comes back by itself after the PC reboots.</li>
+<li><b>Close the window</b> when you're done. Minimizing works too, but closing frees the most memory.</li>
+</ul>
+</div>
+
+<div class="gsec" id="g-dashboard" data-cat="Using the panel" data-title="Dashboard">
+<h2><svg class="ic"><use href="#i-dash"/></svg>Dashboard</h2>
+<h4>Status</h4>
+<table><tr><th>Status</th><th>Meaning</th></tr>
+<tr><td><span class="badge r">Offline</span></td><td>The server isn't running. Nobody can join.</td></tr>
+<tr><td><span class="badge y">Starting…</span></td><td>Java is running and the world is loading. Players can join once it says Online.</td></tr>
+<tr><td><span class="badge g">Online</span></td><td>The server printed “Done” and is accepting players.</td></tr>
+<tr><td><span class="badge y">Stopping…</span></td><td>The world is saving. If it takes more than 90 seconds, Aetheris force-stops it.</td></tr></table>
+<h4>Buttons</h4>
+<table><tr><th>Button</th><th>What it does</th></tr>
+<tr><td>Start</td><td>Launches Java with your RAM and Java settings.</td></tr>
+<tr><td>Stop</td><td>Sends <code>stop</code>, which saves every world and shuts down cleanly. Always safe.</td></tr>
+<tr><td>Restart</td><td>Stop, then Start.</td></tr>
+<tr><td>Kill</td><td>Ends the Java process instantly <b>without saving</b>. Use it only if the server is frozen and Stop doesn't work. You lose progress since the last autosave (every 5 minutes by default).</td></tr>
+<tr><td>Back up now</td><td>Makes a zip backup of the current world. See <a href="#guide" data-g="g-backups">Backups</a>.</td></tr></table>
+<h4>Numbers</h4>
+<ul>
+<li><b>Server RAM</b> is how much memory the Minecraft (Java) process uses right now, measured the same way as Task Manager's “Memory” column. “of X allocated” is your maximum RAM setting. Java often uses a little more than that because of its own overhead. That's normal.</li>
+<li><b>Server CPU</b> is the share of your whole processor the server uses. 100% means every core is fully busy.</li>
+<li><b>PC memory free</b> is how much RAM Windows has left. If it gets close to zero, the PC starts swapping and everything slows down. Lower the server's RAM or close other programs.</li>
+<li>The graphs cover the last few minutes while the panel is open. Aetheris doesn't record anything while the panel is closed, to keep its RAM and CPU near zero.</li>
+</ul>
+<h4>Address</h4>
+<p>Shows your playit.gg address if you entered one in Settings, otherwise <code>localhost</code>, which only works from this PC. Click the copy icon to copy it.</p>
+</div>
+
+<div class="gsec" id="g-console" data-cat="Using the panel" data-title="Console">
+<h2><svg class="ic"><use href="#i-term"/></svg>Console</h2>
+<p class="lead">The live log of your server, plus a box to type server commands.</p>
+<ul>
+<li>Type commands <b>without</b> the leading <code>/</code> (it's removed for you anyway). Press <kbd>Enter</kbd> to send, and <kbd>↑</kbd>/<kbd>↓</kbd> to go through earlier commands.</li>
+<li>Click a quick-command chip to fill it in, then edit it and press Enter.</li>
+<li><b>Search and filters</b> show only matching lines: warnings, errors, chat or join/leave.</li>
+<li><b>Log file</b> downloads <code>logs/latest.log</code>, the full log of the current run, which is handy when asking for help.</li>
+</ul>
+<table><tr><th>Colour</th><th>Meaning</th></tr>
+<tr><td style="color:#fcd34d">Yellow</td><td>Warning. Usually harmless, like “Can't keep up!”, which means a short lag spike.</td></tr>
+<tr><td style="color:#fca5a5">Red</td><td>Error or crash details. Read these when something breaks.</td></tr>
+<tr><td style="color:#86efac">Green</td><td>A player joined or left.</td></tr>
+<tr><td style="color:#fff">White</td><td>Chat messages.</td></tr>
+<tr><td style="color:#67e8f9">Cyan</td><td>Commands you (or a schedule) sent.</td></tr>
+<tr><td style="color:#c4b5fd">Purple</td><td>Messages from Aetheris itself.</td></tr></table>
+<p>See <a href="#guide" data-g="g-commands">Common commands</a> for useful commands.</p>
+</div>
+
+<div class="gsec" id="g-options" data-cat="Using the panel" data-title="Server options">
+<h2><svg class="ic"><use href="#i-sliders"/></svg>Server options (server.properties)</h2>
+<p class="lead">The main settings file of every Minecraft server. Aetheris shows the important ones as switches and explains each.</p>
+<ul>
+<li>Change things, then click <b>Save</b> in the bar at the bottom. A small dot marks each changed option, and <b>Discard</b> undoes everything unsaved.</li>
+<li>Most options apply <b>after a restart</b>. The yellow Restart bar reminds you.</li>
+<li>You can edit options while the server is offline. If the server has never started, <code>server.properties</code> is created for you.</li>
+<li><b>All other properties</b> at the bottom lists every remaining line of the file, so nothing is hidden.</li>
+</ul>
+<h4>The important ones</h4>
+<table><tr><th>Option</th><th>What it does</th></tr>
+<tr><td>Server description (MOTD)</td><td>The text under your server's name in the multiplayer list. Use the colour buttons; they insert <code>§</code> codes such as <code>§a</code> for green and <code>§l</code> for bold. Two lines maximum.</td></tr>
+<tr><td>Server icon</td><td>The picture in the server list. Any image is resized to 64×64 and saved as <code>server-icon.png</code>.</td></tr>
+<tr><td>Game mode / Difficulty</td><td>The defaults for new players and the world. Peaceful removes hostile mobs.</td></tr>
+<tr><td>Hardcore</td><td>One life. Players who die become spectators.</td></tr>
+<tr><td>Premium accounts only (online-mode)</td><td>On = only paid Minecraft accounts can join, and their identity is verified by Mojang. Off = “cracked” players can join with any name, which means anyone could pretend to be you. If you turn it off, use a whitelist or an auth plugin.</td></tr>
+<tr><td>Whitelist</td><td>Only players on the list can join. The safest way to keep strangers out. Manage it on <a href="#players">Players</a>.</td></tr>
+<tr><td>Require secure chat</td><td>Mojang's chat signing. Turn it off if cracked or modded players get kicked when they chat.</td></tr>
+<tr><td>View distance</td><td>How far (in chunks) players can see. Each step up costs a lot more RAM and CPU. 6–8 is a good fit for old PCs.</td></tr>
+<tr><td>Simulation distance</td><td>How far mobs move and crops grow around players. 4–6 saves a lot of CPU.</td></tr>
+<tr><td>Pause when empty</td><td>Freezes the world after this many seconds with nobody online, so the server uses almost no CPU (Minecraft 1.21.2+).</td></tr>
+<tr><td>Spawn protection</td><td>Radius around spawn where only operators can build. Set it to 0 so everyone can build at spawn.</td></tr>
+<tr><td>Allow the End / Nether</td><td>Whether those dimensions exist. <b>Allow the End</b> only exists on Paper, Purpur and Spigot (in <code>bukkit.yml</code>); Vanilla always has the End.</td></tr>
+<tr><td>Seed / World type</td><td>Only used when a <b>new</b> world is generated. Changing them does nothing to an existing world. Use <a href="#worlds">Worlds → Reset</a> for that.</td></tr>
+<tr><td>Server port</td><td>The network port (default 25565). Your playit.gg tunnel must point to the same port.</td></tr>
+<tr><td>Command blocks</td><td>Command blocks only work if this is on.</td></tr>
+<tr><td>Operator level</td><td>How powerful <code>/op</code> makes someone. See <a href="#guide" data-g="g-players">Players</a>.</td></tr></table>
+<h4>Paper / Spigot options</h4>
+<p>On Paper, Purpur or Spigot, an extra card edits <code>bukkit.yml</code>: <b>spawn limits</b> (fewer mobs = less lag), <b>autosave interval</b> and <b>connection throttle</b>. These appear once the server has started at least once, because that's when the file is created.</p>
+</div>
+
+<div class="gsec" id="g-gamerules" data-cat="Using the panel" data-title="Game rules">
+<h2><svg class="ic"><use href="#i-book"/></svg>Game rules</h2>
+<p class="lead">Game rules are switches stored <b>inside the world</b> that change how the game behaves, like keepInventory, mob griefing or the daylight cycle.</p>
+<ul>
+<li>They aren't in <code>server.properties</code>. They're saved in the world's <code>level.dat</code>, so each world has its own.</li>
+<li>They can only be read or changed while the server is <b>online</b>, using the <code>/gamerule</code> command. Aetheris runs it for you.</li>
+<li>Changes apply <b>instantly</b>, with no restart needed, and stay saved.</li>
+<li>Rules your Minecraft version doesn't have are marked “not available”. Newer versions (1.21.11 and the 26.x releases) renamed rules to <code>snake_case</code>, such as <code>keep_inventory</code>. Aetheris detects this from the server version.</li>
+<li>Use <b>Set any game rule</b> for rules not in the list, such as <code>spawnChunkRadius</code>.</li>
+</ul>
+<table><tr><th>Popular rule</th><th>Effect</th></tr>
+<tr><td>keepInventory</td><td>Keep items and XP when you die.</td></tr>
+<tr><td>mobGriefing</td><td>Off = creepers don't destroy blocks and endermen don't take them.</td></tr>
+<tr><td>doDaylightCycle</td><td>Off = time stops. Pair it with <code>time set day</code> for permanent day.</td></tr>
+<tr><td>playersSleepingPercentage</td><td>Percentage of players who must sleep to skip the night. Set 0–1 so one sleeper is enough.</td></tr>
+<tr><td>doInsomnia</td><td>Off = no phantoms.</td></tr>
+<tr><td>randomTickSpeed</td><td>Crop and tree growth speed. Default 3. High values cause lag.</td></tr></table>
+</div>
+
+<div class="gsec" id="g-players" data-cat="Using the panel" data-title="Players">
+<h2><svg class="ic"><use href="#i-users"/></svg>Players</h2>
+<table><tr><th>Tab</th><th>What it's for</th></tr>
+<tr><td>Online</td><td>Who's playing now. Buttons: <b>Op</b>/<b>De-op</b>, <b>Message</b> (a private message from the server), <b>Game mode</b>, <b>Kick</b> (they can rejoin) and <b>Ban</b> (they can't).</td></tr>
+<tr><td>Whitelist</td><td>Players allowed to join when the whitelist is on. The switch at the top turns the whitelist on or off.</td></tr>
+<tr><td>Operators</td><td>Admins who can use commands.</td></tr>
+<tr><td>Banned / Banned IPs</td><td>Players or IP addresses that can't join. Remove them from the list to unban.</td></tr></table>
+<h4>Operator levels</h4>
+<table><tr><th>Level</th><th>Can do</th></tr>
+<tr><td>1</td><td>Build in spawn protection.</td></tr>
+<tr><td>2</td><td>Cheat commands (<code>/gamemode</code>, <code>/tp</code>, <code>/give</code>…) and command blocks.</td></tr>
+<tr><td>3</td><td>Manage players (<code>/kick</code>, <code>/ban</code>, <code>/op</code>).</td></tr>
+<tr><td>4</td><td>Everything, including <code>/stop</code>. This is what <i>Op</i> gives by default.</td></tr></table>
+<h4>Online vs offline changes</h4>
+<p>While the server is <b>online</b>, Aetheris uses the real commands (<code>whitelist add</code>, <code>op</code>, <code>ban</code>…), so changes apply instantly. While it's <b>offline</b>, Aetheris edits <code>whitelist.json</code>, <code>ops.json</code> and the ban files directly. For premium servers, it looks up the player's real ID (UUID) from Mojang, so the name must be a real Minecraft account. For cracked servers (online-mode off), it calculates the offline ID the same way Minecraft does.</p>
+</div>
+
+<div class="gsec" id="g-worlds" data-cat="Using the panel" data-title="Worlds">
+<h2><svg class="ic"><use href="#i-globe"/></svg>Worlds</h2>
+<ul>
+<li>A server plays <b>one world at a time</b>: the folder named in <code>level-name</code> (default <code>world</code>). Its Nether and End live in <code>world/DIM-1</code> and <code>world/DIM1</code> on Vanilla, or in <code>world_nether</code> and <code>world_the_end</code> on Paper and Spigot. Aetheris handles both layouts.</li>
+<li><b>Use this world:</b> switches <code>level-name</code> to another world folder.</li>
+<li><b>New world:</b> picks a new name, seed and type. It's generated on the next start, and your old world is kept.</li>
+<li><b>Reset current world:</b> deletes the current world (all dimensions) and generates a fresh one. Make a backup first!</li>
+<li><b>Upload a world:</b> copy the world folder (the one containing <code>level.dat</code>) into the server folder, or upload it in <a href="#files">Files</a>, then click <i>Use this world</i>.</li>
+</ul>
+<div class="warn">Worlds can only be changed while the server is <b>offline</b>, because Minecraft keeps them open while it runs.</div>
+<table><tr><th>World type</th><th>What you get</th></tr>
+<tr><td>Default</td><td>Normal Minecraft terrain.</td></tr>
+<tr><td>Superflat</td><td>Flat grass world, popular for building.</td></tr>
+<tr><td>Large biomes</td><td>Biomes are 16× larger.</td></tr>
+<tr><td>Amplified</td><td>Extreme mountains. Very heavy on old PCs.</td></tr>
+<tr><td>Single biome</td><td>One biome everywhere.</td></tr></table>
+</div>
+
+<div class="gsec" id="g-mods" data-cat="Using the panel" data-title="Mods, plugins & datapacks">
+<h2><svg class="ic"><use href="#i-puzzle"/></svg>Mods, plugins &amp; datapacks</h2>
+<table><tr><th></th><th>Mods</th><th>Plugins</th><th>Datapacks</th></tr>
+<tr><td>Needs</td><td>Fabric, Quilt, Forge or NeoForge server</td><td>Paper, Purpur or Spigot server</td><td>Any server, including Vanilla</td></tr>
+<tr><td>Folder</td><td><code>mods/</code></td><td><code>plugins/</code></td><td><code>world/datapacks/</code></td></tr>
+<tr><td>Players need it too?</td><td>Usually yes, the same mods and versions. Server-only mods (like Lithium) don't need to be installed by players.</td><td>No, players join with plain Minecraft.</td><td>No.</td></tr>
+<tr><td>File type</td><td><code>.jar</code></td><td><code>.jar</code></td><td><code>.zip</code> or folder</td></tr></table>
+<h4>Adding them</h4>
+<ul>
+<li><b>Drag and drop</b> files onto the Mods page, or click <i>Upload</i>.</li>
+<li><b>.jar:</b> copied into the folder.</li>
+<li><b>.zip of jars:</b> every <code>.jar</code> inside is extracted.</li>
+<li><b>Server pack .zip</b> (contains a <code>mods/</code> or <code>plugins/</code> folder): the whole pack is extracted into your server folder, configs included.</li>
+<li><b>.mrpack</b> (Modrinth modpack): Aetheris downloads every server-side mod in it and applies its config overrides. It then tells you which loader and version the pack needs. Install that in <a href="#software">Software</a>.</li>
+<li><b>Browse Modrinth:</b> search and click Install. Only versions that match your Minecraft version and loader are shown. Required dependencies (like Fabric API) are installed automatically.</li>
+</ul>
+<h4>Managing</h4>
+<p>The switch next to each item enables or disables it. Disabled files are renamed to <code>.disabled</code> and the server ignores them. Mod names and versions are read from inside each jar. Changes apply after a restart. Datapacks can also be reloaded live with the <code>reload</code> command.</p>
+<div class="warn">A mod made for a different Minecraft version or loader is the #1 cause of crashes on start. If the server crashes after adding something, disable the newest file and restart.</div>
+</div>
+
+<div class="gsec" id="g-backups" data-cat="Using the panel" data-title="Backups">
+<h2><svg class="ic"><use href="#i-archive"/></svg>Backups</h2>
+<ul>
+<li>A backup is a zip of the <b>current world</b> (overworld, Nether and End) saved in <code>backups/</code> in your server folder.</li>
+<li><b>Safe while running:</b> Aetheris sends <code>save-off</code> and <code>save-all flush</code>, copies the files, then sends <code>save-on</code>, so the world isn't half-written in the zip.</li>
+<li><b>Restore</b> replaces the current world with the backup. The server must be offline. Make a fresh backup first if you might want the current world back.</li>
+<li><b>Automatic backups</b> (Settings) run while the server is online, every 1–24 hours. Only the newest N automatic backups are kept (files starting with <code>auto_</code>). Manual backups are <b>never</b> deleted automatically.</li>
+<li>Download a backup to keep a copy on another drive or cloud storage. A backup on the same disk won't save you if the disk dies.</li>
+</ul>
+</div>
+
+<div class="gsec" id="g-schedules" data-cat="Using the panel" data-title="Schedules">
+<h2><svg class="ic"><use href="#i-clock"/></svg>Schedules</h2>
+<p class="lead">Run commands automatically, either every X minutes or at a time of day.</p>
+<ul>
+<li>Each schedule has one or more commands (one per line, no <code>/</code>).</li>
+<li><b>Every X minutes</b> counts from when the server started. <b>Daily at</b> uses this PC's clock.</li>
+<li>Schedules only run while the server is online. Aetheris checks once a minute, so times can be up to a minute late.</li>
+<li>Click the play button to run one immediately and test it.</li>
+<li>The templates are ready-made schedules: announcements, saves, clearing dropped items and restart warnings.</li>
+</ul>
+<p>Daily restarts and automatic backups are in <a href="#settings">Settings</a> and are listed on the Schedules page too.</p>
+</div>
+
+<div class="gsec" id="g-software" data-cat="Using the panel" data-title="Software">
+<h2><svg class="ic"><use href="#i-box"/></svg>Software</h2>
+<ul>
+<li><b>Installed server jars</b> lists every <code>.jar</code> in your server folder. <i>Use this</i> picks which one starts. <i>Upload .jar</i> adds your own (for example a Forge shim jar).</li>
+<li><b>Install</b> downloads Vanilla, Paper, Purpur or Fabric straight from the official sites and selects it. It applies on the next start, and your worlds aren't touched.</li>
+<li><b>Upgrading versions:</b> back up first. Worlds upgrade to newer versions, but you <b>can't go back</b> to an older version with an upgraded world.</li>
+<li><b>Java:</b> click <i>Check version</i> to see which Java the server uses. See <a href="#guide" data-g="g-java">Java versions</a>.</li>
+</ul>
+</div>
+
+<div class="gsec" id="g-files" data-cat="Using the panel" data-title="Files">
+<h2><svg class="ic"><use href="#i-folder"/></svg>Files</h2>
+<ul>
+<li>Browse everything in your server folder. Click a folder to open it, and a text file to edit it. In the editor, <kbd>Ctrl</kbd>+<kbd>S</kbd> saves and <kbd>Tab</kbd> indents.</li>
+<li>Upload, download, rename, delete and create files or folders. <i>Explorer</i> opens the current folder in Windows.</li>
+<li>Files outside the server folder can't be reached from the panel. That's on purpose, for safety.</li>
+</ul>
+<div class="warn">Deleting is permanent (there's no Recycle Bin). Editing a config with a typo can stop a plugin or the server from starting. When in doubt, download a copy first.</div>
+</div>
+
+<div class="gsec" id="g-settings" data-cat="Using the panel" data-title="Settings">
+<h2><svg class="ic"><use href="#i-gear"/></svg>Settings</h2>
+<p>These are Aetheris's own settings, saved in <code>aetheris.json</code> next to <code>Aetheris.exe</code>. The Save bar only appears once you change something.</p>
+<table><tr><th>Setting</th><th>Meaning</th></tr>
+<tr><td>Server folder / jar</td><td>Where the server lives and which jar starts.</td></tr>
+<tr><td>Java executable</td><td><code>java</code> = the Java on your PATH. Browse to a specific <code>java.exe</code> to use another version.</td></tr>
+<tr><td>Maximum / Starting RAM</td><td>Java's <code>-Xmx</code> / <code>-Xms</code>. The server can never use more than the maximum. More isn't always better, because huge amounts cause longer garbage-collection pauses.</td></tr>
+<tr><td>Optimized JVM flags</td><td>Aikar's well-known G1GC flags, for smoother performance. Leave this on.</td></tr>
+<tr><td>Restart after a crash</td><td>Starts the server again if it stops on its own (at most 3 times in 10 minutes, to avoid loops).</td></tr>
+<tr><td>Connection watchdog</td><td>Every minute, Aetheris checks that the server still answers connections, like the server list does. If it doesn't answer 3 times in a row, the server is restarted.</td></tr>
+<tr><td>Tray notifications</td><td>A Windows pop-up on crashes and automatic restarts.</td></tr>
+<tr><td>Run with Windows</td><td>Starts Aetheris quietly in the tray when you log in.</td></tr>
+<tr><td>Automatic backups / Keep</td><td>See <a href="#guide" data-g="g-backups">Backups</a>.</td></tr>
+<tr><td>Daily restart</td><td>Restarts the server every day at this time. This clears memory build-up on long-running servers.</td></tr>
+<tr><td>Public address</td><td>Your playit.gg address, shown on the Dashboard.</td></tr>
+<tr><td>playit program / Start with server</td><td>See <a href="#guide" data-g="g-playit">playit.gg</a>.</td></tr>
+<tr><td>App window / Open on launch / Port</td><td>How the panel opens. The panel only listens on this PC (127.0.0.1).</td></tr></table>
+</div>
+
+<div class="gsec" id="g-playit" data-cat="Playing with friends" data-title="playit.gg setup">
+<h2><svg class="ic"><use href="#i-net"/></svg>playit.gg: let friends join</h2>
+<p class="lead">Your PC is behind your router, so people on the internet can't reach it directly. playit.gg is a free tunnel: friends connect to a playit address, and playit forwards them to the server on your PC. You don't need port forwarding or a public IP.</p>
+<ol class="steps">
+<li>Download the playit agent for Windows from <b>playit.gg</b> and install or run it.</li>
+<li>The first time, it shows a <b>claim link</b>. Open it, log in (or create a free account) and approve the agent.</li>
+<li>In the playit dashboard, add a tunnel of type <b>Minecraft Java</b>. Set the local address to <code>127.0.0.1</code> and the local port to <b>25565</b> (or whatever <i>Server port</i> is in <a href="#options">Options</a>).</li>
+<li>playit gives you an address such as <code>something.joinmc.link</code>. Paste it into <a href="#settings">Settings → Public address</a> so it shows on the Dashboard with a copy button.</li>
+<li>Optional: in Settings, set <b>playit program</b> to your <code>playit.exe</code> and turn on <b>Start playit with the server</b>. Aetheris then starts the tunnel with the server, and if the tunnel closes while the server is online, starts it again within a minute (auto-reconnect).</li>
+<li>Friends add your address in Minecraft under Multiplayer → Add Server.</li>
+</ol>
+<div class="tip">If playit is installed as a Windows service (it runs in the background on its own), leave <i>Start playit with the server</i> off. Aetheris notices it's already running and doesn't start a second copy.</div>
+<h4>Troubleshooting playit</h4>
+<ul>
+<li>The dashboard badge says <b>playit stopped</b>: start the agent, or turn on Start playit with the server.</li>
+<li>Friends see “Can't connect”: the tunnel's local port must match <i>Server port</i>, and the server must be Online.</li>
+<li>The address changed: update it in Settings.</li>
+</ul>
+</div>
+
+<div class="gsec" id="g-connect" data-cat="Playing with friends" data-title="How players connect">
+<h2><svg class="ic"><use href="#i-users"/></svg>How players connect</h2>
+<table><tr><th>Who</th><th>Address to use</th></tr>
+<tr><td>You, on this PC</td><td><code>localhost</code></td></tr>
+<tr><td>Someone on your home Wi-Fi</td><td>This PC's local IP (run <code>ipconfig</code>, look for IPv4, such as <code>192.168.1.20</code>)</td></tr>
+<tr><td>Friends over the internet</td><td>Your playit.gg address</td></tr></table>
+<ul>
+<li>Players must use the <b>same Minecraft version</b> as the server. “Outdated client” or “Outdated server” means the versions don't match.</li>
+<li>Modded servers (Fabric or Forge) also need the same mods on the player's side, except server-only mods.</li>
+<li>Cracked players can only join if <i>Premium accounts only</i> is off.</li>
+</ul>
+</div>
+
+<div class="gsec" id="g-bedrock" data-cat="Playing with friends" data-title="Bedrock players (phones, consoles)">
+<h2><svg class="ic"><use href="#i-globe"/></svg>Bedrock players (phones, consoles, Windows Bedrock)</h2>
+<p>Java servers don't accept Bedrock players on their own. To let them join:</p>
+<ol>
+<li>Use a <b>Paper</b> or <b>Purpur</b> server, then install the <b>Geyser</b> plugin (and <b>Floodgate</b> if Bedrock players have no Java account). Both are on Modrinth.</li>
+<li>Geyser listens on UDP port <b>19132</b>. In playit.gg, add a second tunnel of type <b>Minecraft Bedrock</b> pointing to <code>127.0.0.1:19132</code>.</li>
+<li>Bedrock players add the Bedrock tunnel's address and port.</li>
+</ol>
+</div>
+
+<div class="gsec" id="g-sync" data-cat="Reference" data-title="When do changes apply? (sync)">
+<h2><svg class="ic"><use href="#i-refresh"/></svg>When do changes apply? Is everything synced?</h2>
+<p class="lead">Aetheris has no separate copy of your settings. It always reads and writes the real server files, so the panel and the server are always in sync.</p>
+<table><tr><th>What you change</th><th>When it applies</th></tr>
+<tr><td>Game rules, commands, kick/ban/op/whitelist while online</td><td><b>Instantly</b></td></tr>
+<tr><td>Server options (server.properties), Paper/Spigot options, server icon</td><td>After a <b>restart</b>, and the yellow bar reminds you</td></tr>
+<tr><td>Mods, plugins, datapacks, server jar</td><td>After a <b>restart</b> (datapacks can also be reloaded live with <code>reload</code>)</td></tr>
+<tr><td>RAM, Java path, JVM flags</td><td>After a <b>restart</b></td></tr>
+<tr><td>Worlds (switch, reset, new), restoring backups</td><td>Only possible while <b>offline</b>; used on next start</td></tr>
+<tr><td>Schedules, automation, playit, panel settings</td><td><b>Instantly</b> (panel port: after restarting Aetheris)</td></tr>
+<tr><td>Whitelist/ops/bans while offline</td><td>Written to the files, so they're active as soon as the server starts</td></tr></table>
+<ul>
+<li>Changes made <b>in-game</b> (for example an op typing <code>/whitelist add Steve</code> or <code>/gamerule keepInventory true</code>) show up in Aetheris too, because it reads the same files and the live server.</li>
+<li>Minecraft rewrites <code>server.properties</code> when it starts, adding any missing options with their defaults. That's normal.</li>
+<li>Aetheris's own settings (<code>aetheris.json</code>) and schedules are stored only on this PC, next to <code>Aetheris.exe</code>. Nothing is synced to the cloud.</li>
+<li>If you edit files by hand while the panel is open, reload the page (<kbd>F5</kbd>) to see the changes.</li>
+</ul>
+</div>
+
+<div class="gsec" id="g-types" data-cat="Reference" data-title="Server types">
+<h2><svg class="ic"><use href="#i-layers"/></svg>Server types</h2>
+<table><tr><th>Type</th><th>Best for</th><th>Add-ons</th></tr>
+<tr><td><b>Vanilla</b></td><td>The pure official game.</td><td>Datapacks only</td></tr>
+<tr><td><b>Paper</b></td><td>Most servers. Much faster than Vanilla, so it's the best choice for an old PC.</td><td>Plugins + datapacks</td></tr>
+<tr><td><b>Purpur</b></td><td>Paper plus many extra gameplay options.</td><td>Plugins + datapacks</td></tr>
+<tr><td><b>Fabric</b></td><td>Lightweight mods (and performance mods like Lithium and FerriteCore).</td><td>Fabric mods + datapacks</td></tr>
+<tr><td>Forge / NeoForge</td><td>Big content modpacks. Install them with their own installer, then pick the jar in Software.</td><td>Forge mods</td></tr></table>
+<p>Players with a normal Minecraft client can join Vanilla, Paper and Purpur servers. Fabric and Forge servers need matching mods on the player's side unless every mod is server-only.</p>
+</div>
+
+<div class="gsec" id="g-java" data-cat="Reference" data-title="Java versions">
+<h2><svg class="ic"><use href="#i-coffee"/></svg>Java versions</h2>
+<table><tr><th>Minecraft version</th><th>Java needed</th></tr>
+<tr><td>1.12 – 1.16.5</td><td>Java 8 (some 1.16 servers also run on 11)</td></tr>
+<tr><td>1.17 – 1.17.1</td><td>Java 16 or 17</td></tr>
+<tr><td>1.18 – 1.20.4</td><td>Java 17</td></tr>
+<tr><td>1.20.5 – 1.21.x</td><td>Java 21</td></tr>
+<tr><td>Newest releases (26.x)</td><td>Possibly Java 25. Check the version's release notes.</td></tr></table>
+<p>An error like <code>UnsupportedClassVersionError … class file version 65.0</code> means your Java is too old. Version 65 = Java 21, 69 = Java 25. Install a newer Java (for example Eclipse Temurin) and set its <code>java.exe</code> in Settings. You can keep several Java versions installed side by side.</p>
+</div>
+
+<div class="gsec" id="g-commands" data-cat="Reference" data-title="Common commands">
+<h2><svg class="ic"><use href="#i-term"/></svg>Common commands</h2>
+<p>Type these in the <a href="#console">Console</a> (no <code>/</code> needed). In-game, operators type them with <code>/</code>.</p>
+<table><tr><th>Command</th><th>What it does</th></tr>
+<tr><td><code>list</code></td><td>Show who's online.</td></tr>
+<tr><td><code>say Hello!</code></td><td>Broadcast a message to everyone.</td></tr>
+<tr><td><code>tell Steve hi</code></td><td>Private message to one player.</td></tr>
+<tr><td><code>op Steve</code> / <code>deop Steve</code></td><td>Make someone an admin, or remove it.</td></tr>
+<tr><td><code>whitelist add Steve</code> / <code>whitelist on</code></td><td>Manage the whitelist.</td></tr>
+<tr><td><code>kick Steve reason</code> / <code>ban Steve reason</code> / <code>pardon Steve</code></td><td>Kick, ban and unban.</td></tr>
+<tr><td><code>gamemode creative Steve</code></td><td>Change someone's game mode.</td></tr>
+<tr><td><code>tp Steve Alex</code></td><td>Teleport Steve to Alex.</td></tr>
+<tr><td><code>give Steve diamond 64</code></td><td>Give items.</td></tr>
+<tr><td><code>time set day</code> / <code>weather clear</code></td><td>Change time or weather.</td></tr>
+<tr><td><code>difficulty hard</code></td><td>Change difficulty right away.</td></tr>
+<tr><td><code>gamerule keepInventory true</code></td><td>Change a game rule.</td></tr>
+<tr><td><code>save-all</code></td><td>Save the world now.</td></tr>
+<tr><td><code>kill @e[type=item]</code></td><td>Remove all dropped items (reduces lag).</td></tr>
+<tr><td><code>worldborder set 5000</code></td><td>Limit the world size.</td></tr>
+<tr><td><code>reload</code></td><td>Reload datapacks.</td></tr>
+<tr><td><code>stop</code></td><td>Save and stop the server (same as the Stop button).</td></tr></table>
+</div>
+
+<div class="gsec" id="g-keys" data-cat="Reference" data-title="Keyboard shortcuts">
+<h2><svg class="ic"><use href="#i-cmd"/></svg>Keyboard shortcuts</h2>
+<table><tr><th>Keys</th><th>Action</th></tr>
+<tr><td><kbd>/</kbd></td><td>Jump to the console command box</td></tr>
+<tr><td><kbd>?</kbd></td><td>Open this guide</td></tr>
+<tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save on the Options or Settings page, or in the file editor</td></tr>
+<tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Command history in the console</td></tr>
+<tr><td><kbd>Esc</kbd></td><td>Close a dialog</td></tr>
+<tr><td><kbd>Enter</kbd></td><td>Confirm a dialog</td></tr></table>
+</div>
+
+<div class="gsec" id="g-glossary" data-cat="Reference" data-title="Glossary">
+<h2><svg class="ic"><use href="#i-book"/></svg>Glossary</h2>
+<table>
+<tr><td><b>Tick / TPS</b></td><td>The server updates the world 20 times a second (20 TPS). Below 20, the game feels laggy.</td></tr>
+<tr><td><b>Chunk</b></td><td>A 16×16 block column of the world. View distance is measured in chunks.</td></tr>
+<tr><td><b>Seed</b></td><td>The number that decides how a world generates. The same seed gives the same terrain.</td></tr>
+<tr><td><b>MOTD</b></td><td>“Message of the day”, the description in the server list.</td></tr>
+<tr><td><b>Op</b></td><td>Operator, a server admin.</td></tr>
+<tr><td><b>UUID</b></td><td>A player's permanent ID. Names can change, but UUIDs can't.</td></tr>
+<tr><td><b>Premium / cracked</b></td><td>A paid, Mojang-verified account, or an unverified offline name.</td></tr>
+<tr><td><b>JVM / heap</b></td><td>Java, which runs the server. The heap is the RAM you allow it (max RAM).</td></tr>
+<tr><td><b>Loader</b></td><td>The software that loads mods (Fabric, Forge…) or plugins (Paper…).</td></tr>
+<tr><td><b>Datapack</b></td><td>A zip of Minecraft's own data files (recipes, functions, loot) that works on any server.</td></tr>
+<tr><td><b>Tunnel</b></td><td>A forwarded connection (playit.gg) that lets the internet reach your PC.</td></tr>
+<tr><td><b>EULA</b></td><td>Mojang's license agreement you accept to run a server.</td></tr></table>
+</div>
+
+<div class="gsec" id="g-perf" data-cat="Help" data-title="Performance tips for old PCs">
+<h2><svg class="ic"><use href="#i-gauge"/></svg>Performance tips for old PCs</h2>
+<ol>
+<li><b>Use Paper</b> (or Fabric with Lithium + FerriteCore). This is the biggest single improvement.</li>
+<li><b>View distance 6–8, simulation distance 4–6</b> in Options.</li>
+<li>Turn on <b>Pause when empty</b>, so the server barely uses CPU when nobody's on.</li>
+<li><b>Pre-generate the world</b> with the Chunky plugin or mod (for example <code>chunky radius 2000</code>, then <code>chunky start</code>) while nobody's playing. Exploring new land is the heaviest thing a server does.</li>
+<li>Set a <b>world border</b> so players don't generate endless new chunks.</li>
+<li>Lower the <b>spawn limits</b> (Paper) and clear dropped items with a <a href="#schedules">schedule</a>.</li>
+<li>Give the server <b>enough RAM but not too much</b>: 2–4 GB for small servers. Leave 1–2 GB for Windows.</li>
+<li>Keep the <b>optimized JVM flags</b> on, and use a <b>daily restart</b>.</li>
+<li>Put the server folder on an <b>SSD</b> if you have one.</li>
+<li>Close the Aetheris window (and other programs) when you don't need them.</li>
+</ol>
+</div>
+
+<div class="gsec" id="g-trouble" data-cat="Help" data-title="Troubleshooting">
+<h2><svg class="ic"><use href="#i-alert"/></svg>Troubleshooting</h2>
+<table><tr><th>Problem</th><th>Fix</th></tr>
+<tr><td>“Could not launch Java”</td><td>Java isn't installed or isn't on PATH. Install it, or set the full path to <code>java.exe</code> in Settings.</td></tr>
+<tr><td><code>UnsupportedClassVersionError</code></td><td>Your Java is too old for this Minecraft version. See <a href="#guide" data-g="g-java">Java versions</a>.</td></tr>
+<tr><td>“You need to agree to the EULA”</td><td>Click <i>I agree</i> on the Dashboard.</td></tr>
+<tr><td>“Failed to bind to port”</td><td>Another server (or another copy of this one) is already using that port. Stop it, or change <i>Server port</i>.</td></tr>
+<tr><td>Server crashes right after adding a mod or plugin</td><td>Disable the newest one on the Mods page and restart. Check that it matches your Minecraft version and loader.</td></tr>
+<tr><td><code>OutOfMemoryError</code></td><td>Raise Maximum RAM in Settings, or remove heavy mods.</td></tr>
+<tr><td>“Can't keep up! Is the server overloaded?”</td><td>A lag spike. If it happens constantly, follow the <a href="#guide" data-g="g-perf">performance tips</a>.</td></tr>
+<tr><td>Friends can't connect</td><td>Server Online? playit agent running? Tunnel local port = Server port? Same Minecraft version?</td></tr>
+<tr><td>“Failed to verify username”</td><td>A cracked player on a premium-only server. Turn off <i>Premium accounts only</i>, or use a premium account.</td></tr>
+<tr><td>Kicked for chat / “invalid signature”</td><td>Turn off <i>Require secure chat</i>.</td></tr>
+<tr><td>Restart loops after a crash</td><td>After 3 crashes in 10 minutes, Aetheris stops trying. Read the red lines in the console or download the log.</td></tr>
+<tr><td>The panel says “Connection to Aetheris lost”</td><td>Aetheris was closed or crashed. Start <code>Aetheris.exe</code> again and the page reconnects by itself.</td></tr>
+<tr><td>Aetheris says the panel port is in use</td><td>Another program uses port 8165. Change <code>"Port"</code> in <code>aetheris.json</code>.</td></tr>
+<tr><td>Settings changed but nothing happened</td><td>Most things need a restart. Use the yellow <i>Restart now</i> bar.</td></tr></table>
+</div>
+
+<div class="gsec" id="g-safety" data-cat="Help" data-title="Safety & privacy">
+<h2><svg class="ic"><use href="#i-shield"/></svg>Safety &amp; privacy</h2>
+<ul>
+<li>The panel only listens on <code>127.0.0.1</code>, so no one on your network or the internet can open it. It also rejects requests from other websites.</li>
+<li>Downloads only come from official sources: Mojang, PaperMC, Purpur, Fabric, Modrinth and GitHub.</li>
+<li>The Files page can't reach anything outside your server folder.</li>
+<li>Only download mods and plugins from trusted places. A jar can run any code on your PC.</li>
+<li>Keep <b>Premium accounts only</b> on, or use a whitelist, so strangers can't join as you or as your admins.</li>
+</ul>
+</div>
+
+  </div>
+</div>
+</section>
+
 <!-- ============ SETTINGS ============ -->
 <section data-page="settings" hidden>
   <form id="cfgForm" autocomplete="off">
@@ -615,7 +1113,7 @@ body[data-state=starting] .hero-icon,body[data-state=stopping] .hero-icon{border
     </div>
     </div>
   </div>
-  <div class="savebar"><svg class="ic" style="color:#a78bfa"><use href="#i-gear"/></svg><div class="grow muted" style="font-size:13px">RAM, Java and jar changes apply on the next server start.</div><button class="btn" type="submit"><svg class="ic sm"><use href="#i-check"/></svg>Save settings</button></div>
+  <div class="savebar" id="cfgBar" hidden><svg class="ic" style="color:#67e8f9"><use href="#i-info"/></svg><div class="grow"><b>Unsaved settings</b><div class="muted" style="font-size:12.5px">RAM, Java and jar changes apply on the next server start.</div></div><button class="btn ghost" type="button" id="cfgDiscard">Discard</button><button class="btn" type="submit"><svg class="ic sm"><use href="#i-check"/></svg>Save settings</button></div>
   </form>
 </section>
     </div>
@@ -687,8 +1185,8 @@ function motdHtml(t){
 }
 
 /* ---------- navigation ---------- */
-const PAGES={dashboard:'Dashboard',console:'Console',options:'Server options',gamerules:'Game rules',players:'Players',worlds:'Worlds',mods:'Mods & plugins',backups:'Backups',software:'Software',files:'Files',settings:'Settings'};
-const SUBS={dashboard:'Status, performance and quick actions',console:'Live server log and commands',options:'server.properties: gameplay, access, world and performance',gamerules:'Rules that change how the world behaves',players:'Online players, whitelist, operators and bans',worlds:'Switch, create and reset worlds',mods:'Install mods, plugins, datapacks and modpacks',backups:'Zip backups of your world',software:'Server type, version and Java',files:'Everything in your server folder',settings:'How Aetheris runs your server'};
+const PAGES={dashboard:'Dashboard',console:'Console',options:'Server options',gamerules:'Game rules',players:'Players',worlds:'Worlds',mods:'Mods & plugins',backups:'Backups',schedules:'Schedules',software:'Software',files:'Files',settings:'Settings',guide:'Guide'};
+const SUBS={dashboard:'Status, performance and quick actions',console:'Live server log and commands',options:'server.properties: gameplay, access, world and performance',gamerules:'Rules that change how the world behaves',players:'Online players, whitelist, operators and bans',worlds:'Switch, create and reset worlds',mods:'Install mods, plugins, datapacks and modpacks',backups:'Zip backups of your world',software:'Server type, version and Java',files:'Everything in your server folder',settings:'How Aetheris runs your server',schedules:'Automatic commands and announcements',guide:'Everything you need to know, by topic'};
 const LOAD={};
 function go(){
   let p=location.hash.slice(1)||'dashboard';if(!PAGES[p])p='dashboard';
@@ -750,6 +1248,9 @@ function renderState(s){
   $('#stVersion').title=s.jar||'';
   $('#stUptime').textContent=s.state==='offline'?'—':fmtUp(s.uptime);
   renderPerf(s);
+  const pend=s.pending||[];$('#restartBar').hidden=!pend.length||s.state==='offline';
+  $('#restartWhat').textContent=pend.length?pend.join(', ').replace(/^./,c=>c.toUpperCase()):'';
+  const nt=$('#navTasks');nt.hidden=!s.tasks;nt.textContent=s.tasks;
   const nb=$('#navPlayers');nb.hidden=!(s.state==='online'&&s.players.length);nb.textContent=s.players.length;
   const lk=loaderKind(s.loader);$('#navMods').textContent=lk==='plugins'?'Plugins':lk==='mods'?'Mods':'Mods & plugins';
   $('#loaderBadge').textContent=s.loader==='vanilla'?'Vanilla':s.loader;
@@ -853,7 +1354,7 @@ function appendLines(lines){
   if(!lines.length)return;
   const stick=$('#autoScroll').checked&&term.scrollHeight-term.scrollTop-term.clientHeight<80;
   const f=document.createDocumentFragment();
-  for(const l of lines){const d=document.createElement('div');const c=lineCls(l);if(c)d.className=c;d.innerHTML=lineHtml(l);f.append(d)}
+  for(const l of lines){const d=document.createElement('div');const c=lineCls(l);if(c)d.className=c;d.innerHTML=lineHtml(l);if(!cPass(d))d.classList.add('f-hide');f.append(d)}
   term.append(f);
   let extra=term.childElementCount-1500;while(extra-->0)term.firstChild.remove();
   if(stick||S.page!=='console')term.scrollTop=term.scrollHeight;
@@ -883,6 +1384,11 @@ $('#cmdInput').onkeydown=e=>{
   else if(e.key==='ArrowDown'){S.hi=Math.min(S.hist.length,S.hi+1);e.target.value=S.hist[S.hi]||'';e.preventDefault()}
 };
 $('#clearTerm').onclick=()=>{term.innerHTML=''};
+S.cf={q:'',l:''};
+function cPass(d){return(!S.cf.l||d.classList.contains(S.cf.l))&&(!S.cf.q||d.textContent.toLowerCase().includes(S.cf.q))}
+function cApply(){for(const d of term.children)d.classList.toggle('f-hide',!cPass(d));term.scrollTop=term.scrollHeight}
+let cft;$('#cFilter').oninput=e=>{clearTimeout(cft);cft=setTimeout(()=>{S.cf.q=e.target.value.trim().toLowerCase();cApply()},150)};
+$('#cLevel').onclick=e=>{const b=e.target.closest('button');if(!b)return;$$('#cLevel button').forEach(x=>x.classList.toggle('on',x===b));S.cf.l=b.dataset.l;cApply()};
 
 /* ---------- options (server.properties) ---------- */
 const OPT=[
@@ -1110,6 +1616,8 @@ function renderPlayers(){
     if(t==='online'){const n=x;const isOp=(d.ops||[]).some(o=>o.name&&o.name.toLowerCase()===n.toLowerCase());
       return `<div class="li">${avatar(n)}<div class="grow"><div class="nm">${esc(n)} ${isOp?'<span class="badge">op</span>':''}</div></div><div class="acts">
       <button class="btn ghost sm" data-a="${isOp?'deop':'op'}" data-n="${esc(n)}">${ic('shield')}${isOp?'De-op':'Op'}</button>
+      <button class="btn ghost sm" data-a="msg" data-n="${esc(n)}">${ic('term')}Message</button>
+      <button class="btn ghost sm" data-a="gm" data-n="${esc(n)}">${ic('layers')}Game mode</button>
       <button class="btn ghost sm" data-a="kick" data-n="${esc(n)}">${ic('out')}Kick</button>
       <button class="btn ghost sm danger-t" data-a="ban" data-n="${esc(n)}">${ic('ban')}Ban</button></div></div>`}
     const n=t==='ipbans'?x.ip:x.name;
@@ -1136,6 +1644,8 @@ $('#pList').onclick=async e=>{
   if(a==='remove')return playerAct(S.ptab,'remove',n,'',b);
   if(a==='op')return playerAct('ops','add',n,'',b);
   if(a==='deop')return playerAct('ops','remove',n,'',b);
+  if(a==='msg'){const r=await modal({title:'Message '+n,ok:'Send',html:'<div class="fld"><label class="f">Private message</label><input name="m" style="width:100%" maxlength="200"></div>'});if(r&&r.m.trim())api('cmd',{cmd:`tell ${n} ${r.m.trim()}`}).then(()=>toast('Message sent to '+n)).catch(er=>toast(er.message,'err'));return}
+  if(a==='gm'){const r=await modal({title:'Game mode for '+n,ok:'Change',html:`<div class="fld"><label class="f">Game mode</label><select name="g" style="width:100%">${['survival','creative','adventure','spectator'].map(x=>`<option>${x}</option>`).join('')}</select></div>`});if(r)api('cmd',{cmd:`gamemode ${r.g} ${n}`}).then(()=>toast(`${n} is now in ${r.g}`)).catch(er=>toast(er.message,'err'));return}
   const r=await modal({title:(a==='ban'?'Ban ':'Kick ')+n,html:`<div class="fld"><label class="f">Reason (optional)</label><input name="reason" style="width:100%"></div>`,ok:a==='ban'?'Ban':'Kick',danger:true});
   if(r)playerAct(a==='ban'?'bans':'online',a==='ban'?'add':'kick',n,r.reason,b);
 };
@@ -1409,10 +1919,15 @@ LOAD.settings=async()=>{
     $$('[data-cfg]').forEach(el=>{const v=d.config[el.dataset.cfg];if(el.type==='checkbox')el.checked=!!v;else el.value=v??''});
     $('#c-autostart').checked=d.autostart;
     syncRam();
+    S.cfgSnap=cfgSnap();cfgDirty();
   }catch(e){toast(e.message,'err')}
 };
 $('#c-MaxRam').oninput=$('#c-MinRam').oninput=syncRam;
-$('#clearRestart').onclick=()=>{$('[data-cfg=DailyRestart]').value=''};
+$('#clearRestart').onclick=()=>{$('[data-cfg=DailyRestart]').value='';cfgDirty()};
+function cfgSnap(){return JSON.stringify($$('[data-cfg]').map(el=>el.type==='checkbox'?el.checked:String(el.value)).concat($('#c-autostart').checked))}
+function cfgDirty(){$('#cfgBar').hidden=!S.cfgSnap||cfgSnap()===S.cfgSnap}
+$('#cfgForm').addEventListener('input',cfgDirty);$('#cfgForm').addEventListener('change',cfgDirty);
+$('#cfgDiscard').onclick=()=>{S.cfgSnap=null;LOAD.settings()};
 $('#cfgForm').onsubmit=e=>{
   e.preventDefault();const btn=$('button[type=submit]',e.target);
   busy(btn,async()=>{
@@ -1426,7 +1941,88 @@ $('#cfgForm').onsubmit=e=>{
 $('[data-page=settings]').addEventListener('click',async e=>{
   const b=e.target.closest('[data-browse]');if(!b)return;
   const inp=$('#'+b.dataset.for);
-  busy(b,async()=>{const r=await api('browse',{kind:b.dataset.browse,start:inp.value});if(r.path){inp.value=r.path;if(b.dataset.browse==='folder')toast('Click “Save settings” to apply.','info')}});
+  busy(b,async()=>{const r=await api('browse',{kind:b.dataset.browse,start:inp.value});if(r.path){inp.value=r.path;cfgDirty();if(b.dataset.browse==='folder')toast('Click “Save settings” to apply.','info')}});
+});
+
+/* ---------- schedules ---------- */
+const TPL=[
+  {Name:'Announcement',Command:'say Join our Discord! Be nice and have fun :)',Every:30,At:''},
+  {Name:'Save the world',Command:'save-all',Every:15,At:''},
+  {Name:'Clear dropped items',Command:'say Clearing dropped items in 30 seconds!\nkill @e[type=item]',Every:60,At:''},
+  {Name:'Morning time',Command:'time set day\nweather clear',Every:0,At:'08:00'},
+];
+const tWhen=t=>[t.Every?`every ${t.Every>=60&&t.Every%60===0?(t.Every/60)+' h':t.Every+' min'}`:'',t.At?`daily at ${t.At}`:''].filter(Boolean).join(' + ');
+LOAD.schedules=async()=>{
+  try{
+    const [d,c]=await Promise.all([api('tasks'),api('config')]);S.tasks=d.tasks;
+    $('#tTemplates').innerHTML='<span class="muted" style="font-size:12px;align-self:center;margin-right:4px">Templates:</span>'+TPL.map((t,i)=>`<button type="button" data-tpl="${i}">+ ${esc(t.Name)}</button>`).join('');
+    $('#tList').innerHTML=S.tasks.length?'<div class="list">'+S.tasks.map((t,i)=>`<div class="li ${t.Enabled?'':'off'}"><span class="av">${ic('clock')}</span><div class="grow"><div class="nm">${esc(t.Name||'Untitled')} <span class="vtag">${esc(tWhen(t))}</span></div><pre>${esc(t.Command)}</pre></div><div class="acts">
+      <button class="icon-btn" data-tr="${i}" title="Run now" aria-label="Run now">${ic('play','')}</button>
+      <button class="icon-btn" data-te="${i}" title="Edit" aria-label="Edit">${ic('edit','')}</button>
+      <span class="sw" title="Enabled"><input type="checkbox" data-tt="${i}" ${t.Enabled?'checked':''} aria-label="Enabled"><span></span></span>
+      <button class="icon-btn danger" data-td="${i}" title="Delete" aria-label="Delete">${ic('trash','')}</button></div></div>`).join('')+'</div>'
+      :`<div class="empty">${ic('clock','')}<div>No schedules yet. Add one, or start from a template above.</div></div>`;
+    const cf=c.config;
+    $('#tBuiltin').innerHTML=`<div class="list"><div class="li"><span class="av">${ic('archive')}</span><div class="grow"><div class="nm">Automatic backups</div><div class="meta">${cf.BackupHours?`Every ${cf.BackupHours} h while online · keeps ${cf.BackupKeep}`:'Off'}</div></div></div><div class="li"><span class="av">${ic('restart')}</span><div class="grow"><div class="nm">Daily restart</div><div class="meta">${cf.DailyRestart?'Every day at '+esc(cf.DailyRestart):'Off'}</div></div></div></div>`;
+  }catch(e){toast(e.message,'err')}
+};
+async function saveTasks(list,msg){
+  try{const d=await api('tasks',{tasks:list});S.tasks=d.tasks;if(msg)toast(msg);LOAD.schedules();poll()}catch(e){toast(e.message,'err');LOAD.schedules()}
+}
+async function editTask(t,isNew){
+  const mode=t.At&&!t.Every?'at':'every';
+  const r=await modal({title:isNew?'New schedule':'Edit schedule',ok:'Save',html:`
+    <div class="fld"><label class="f">Name</label><input name="Name" value="${esc(t.Name)}" style="width:100%" maxlength="60" placeholder="e.g. Announcement"></div>
+    <div class="fld"><label class="f">Commands <span class="muted" style="font-weight:400">(one per line, no /)</span></label><textarea name="Command" rows="4" style="width:100%;font-family:var(--mono)" spellcheck="false" placeholder="say Hello everyone!">${esc(t.Command)}</textarea></div>
+    <div class="fld"><label class="f">When</label><div class="row"><select name="mode" style="width:150px"><option value="every" ${mode==='every'?'selected':''}>Every … minutes</option><option value="at" ${mode==='at'?'selected':''}>Daily at</option></select>
+    <input type="number" name="Every" min="1" max="10080" value="${t.Every||30}" style="width:100px"><input type="time" name="At" value="${esc(t.At||'12:00')}" style="width:120px"></div><small>Only one is used, based on the choice on the left.</small></div>`});
+  if(!r)return;
+  const nt={...t,Name:r.Name.trim(),Command:r.Command.trim(),Every:r.mode==='every'?(+r.Every||0):0,At:r.mode==='at'?r.At:''};
+  const list=(S.tasks||[]).slice();
+  if(isNew)list.push(nt);else list[list.findIndex(x=>x.Id===t.Id)]=nt;
+  saveTasks(list,isNew?'Schedule added.':'Schedule saved.');
+}
+$('#tAdd').onclick=()=>editTask({Id:'',Name:'',Command:'',Every:30,At:'',Enabled:true},true);
+$('#tTemplates').onclick=e=>{const b=e.target.closest('[data-tpl]');if(b)editTask({Id:'',Enabled:true,...TPL[b.dataset.tpl]},true)};
+$('#tList').addEventListener('click',async e=>{
+  const r=e.target.closest('[data-tr]'),ed=e.target.closest('[data-te]'),del=e.target.closest('[data-td]');
+  if(r){const t=S.tasks[r.dataset.tr];if(S.state.state!=='online')return toast('Start the server to run commands.','err');for(const l of t.Command.split('\n').map(x=>x.trim().replace(/^\//,'')).filter(Boolean))await api('cmd',{cmd:l}).catch(er=>toast(er.message,'err'));toast('Ran “'+(t.Name||'schedule')+'”.')}
+  if(ed)editTask(S.tasks[ed.dataset.te],false);
+  if(del&&await confirmBox('Delete schedule?','“'+esc(S.tasks[del.dataset.td].Name||'Untitled')+'” will be removed.',true,'Delete')){const l=S.tasks.slice();l.splice(del.dataset.td,1);saveTasks(l,'Schedule deleted.')}
+});
+$('#tList').addEventListener('change',e=>{const t=e.target.closest('[data-tt]');if(!t)return;const l=S.tasks.map((x,i)=>i==t.dataset.tt?{...x,Enabled:t.checked}:x);saveTasks(l,t.checked?'Schedule enabled.':'Schedule paused.')});
+
+/* ---------- guide ---------- */
+(function(){
+  const secs=$$('.gsec');let cat='',h='';
+  for(const s of secs){if(s.dataset.cat!==cat){cat=s.dataset.cat;h+=`<div class="gcat">${esc(cat)}</div>`}h+=`<a href="#guide" data-g="${s.id}">${esc(s.dataset.title)}</a>`}
+  $('#gTocList').innerHTML=h;
+  $('#gSearch').oninput=e=>{
+    const q=e.target.value.trim().toLowerCase();
+    for(const s of secs){const hit=!q||s.textContent.toLowerCase().includes(q);s.hidden=!hit;const a=$(`#gTocList [data-g="${s.id}"]`);if(a)a.hidden=!hit}
+    $$('#gTocList .gcat').forEach(c=>{let n=c.nextElementSibling,any=false;while(n&&!n.classList.contains('gcat')){if(!n.hidden)any=true;n=n.nextElementSibling}c.hidden=!any});
+  };
+  const io='IntersectionObserver' in window?new IntersectionObserver(es=>{for(const en of es)if(en.isIntersecting){$$('#gTocList a').forEach(a=>a.classList.toggle('on',a.dataset.g===en.target.id))}},{root:$('#content'),rootMargin:'0px 0px -70% 0px'}):null;
+  if(io)secs.forEach(s=>io.observe(s));
+})();
+document.addEventListener('click',e=>{
+  const a=e.target.closest('a[data-g]');if(!a)return;
+  e.preventDefault();
+  const go2=()=>{const t=$('#'+a.dataset.g);if(t){t.hidden=false;t.scrollIntoView({block:'start'})}};
+  if(S.page!=='guide'){location.hash='#guide';setTimeout(go2,30)}else go2();
+});
+
+/* ---------- keyboard shortcuts ---------- */
+document.addEventListener('keydown',e=>{
+  const typing=/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)||!$('#modal').hidden;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'&&$('#modal').hidden){
+    if(S.page==='options'&&!$('#saveBar').hidden){e.preventDefault();$('#saveProps').click()}
+    else if(S.page==='settings'&&!$('#cfgBar').hidden){e.preventDefault();$('#cfgForm').requestSubmit()}
+    return;
+  }
+  if(typing||e.ctrlKey||e.altKey||e.metaKey)return;
+  if(e.key==='/'){e.preventDefault();if(S.page!=='console')location.hash='#console';setTimeout(()=>$('#cmdInput').focus(),30)}
+  else if(e.key==='?'){e.preventDefault();location.hash='#guide';setTimeout(()=>$('#gSearch').focus(),30)}
 });
 
 /* ---------- boot ---------- */

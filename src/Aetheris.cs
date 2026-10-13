@@ -92,13 +92,14 @@ namespace Aetheris
         public string DailyRestart { get; set; }
         public bool Watchdog { get; set; }
         public bool Notify { get; set; }
+        public List<TaskDef> Tasks { get; set; }
 
         public Config()
         {
             ServerDir = ""; Jar = ""; JavaPath = "java"; MinRam = 1024; MaxRam = 2048; JvmArgs = "";
             AikarFlags = true; AutoRestart = true; PlayitPath = ""; Address = ""; Port = 8165;
             AppWindow = true; OpenOnLaunch = true; BackupKeep = 10; DailyRestart = "";
-            Watchdog = true; Notify = true;
+            Watchdog = true; Notify = true; Tasks = new List<TaskDef>();
         }
 
         static string FilePath { get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "aetheris.json"); } }
@@ -133,6 +134,9 @@ namespace Aetheris
             if (BackupHours < 0) BackupHours = 0;
             if (BackupHours > 168) BackupHours = 168;
             if (DailyRestart != "" && !Regex.IsMatch(DailyRestart, @"^([01]\d|2[0-3]):[0-5]\d$")) DailyRestart = "";
+            if (Tasks == null) Tasks = new List<TaskDef>();
+            Tasks.RemoveAll(t => t == null);
+            foreach (var t in Tasks) t.Normalize();
         }
 
         public static string FindJar(string dir)
@@ -149,6 +153,26 @@ namespace Aetheris
                 return jars.FirstOrDefault() ?? "";
             }
             catch { return ""; }
+        }
+    }
+
+    public class TaskDef
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Command { get; set; }
+        public int Every { get; set; }
+        public string At { get; set; }
+        public bool Enabled { get; set; }
+        public TaskDef() { Id = Guid.NewGuid().ToString("N").Substring(0, 8); Name = ""; Command = ""; At = ""; Enabled = true; }
+        public void Normalize()
+        {
+            Id = Regex.IsMatch(Id ?? "", @"^[a-z0-9]{1,16}$") ? Id : Guid.NewGuid().ToString("N").Substring(0, 8);
+            Name = (Name ?? "").Trim(); Command = (Command ?? "").Trim(); At = (At ?? "").Trim();
+            if (Name.Length > 60) Name = Name.Substring(0, 60);
+            if (Command.Length > 2000) Command = Command.Substring(0, 2000);
+            if (Every < 0) Every = 0; if (Every > 10080) Every = 10080;
+            if (At != "" && !Regex.IsMatch(At, @"^([01]\d|2[0-3]):[0-5]\d$")) At = "";
         }
     }
 
@@ -207,7 +231,44 @@ namespace Aetheris
             }
             catch (Exception ex) { Server.Log("Scheduler error: " + ex.Message); }
             try { if (Watch()) did = true; } catch { }
+            try { if (RunTasks()) did = true; } catch (Exception ex) { Server.Log("Schedule error: " + ex.Message); }
             if (did) Touch();
+        }
+
+        static readonly Dictionary<string, DateTime> lastRun = new Dictionary<string, DateTime>();
+        static bool RunTasks()
+        {
+            if (Server.State != "online") return false;
+            bool did = false;
+            var now = DateTime.Now;
+            foreach (var t in Cfg.Tasks.ToArray())
+            {
+                if (!t.Enabled || t.Command == "") continue;
+                DateTime last;
+                if (!lastRun.TryGetValue(t.Id, out last)) last = DateTime.MinValue;
+                bool due = false;
+                if (t.Every > 0)
+                {
+                    var from = last > Server.Started ? last : Server.Started;
+                    due = (now - from).TotalMinutes >= t.Every - 0.05;
+                }
+                if (t.At != "" && now.ToString("HH:mm") == t.At && last.Date != now.Date) due = true;
+                if (!due) continue;
+                lastRun[t.Id] = now;
+                RunTask(t);
+                did = true;
+            }
+            return did;
+        }
+
+        public static void RunTask(TaskDef t)
+        {
+            Server.Log("Scheduled task: " + (t.Name != "" ? t.Name : t.Command.Split('\n')[0]));
+            foreach (var line in t.Command.Split('\n'))
+            {
+                var c = line.Trim().TrimStart('/');
+                if (c != "") Server.Send(c, true);
+            }
         }
 
         static int pingFails;
@@ -408,6 +469,14 @@ namespace Aetheris
 
         public static string[] PlayerList() { lock (L) return players.ToArray(); }
 
+        // changes that only apply after a restart (shown in the panel until the server restarts)
+        static readonly List<string> pending = new List<string>();
+        public static string[] Pending() { lock (L) return pending.ToArray(); }
+        public static void NeedRestart(string what)
+        {
+            lock (L) { if (proc != null && !pending.Contains(what)) pending.Add(what); }
+        }
+
         public static void Log(string msg) { AddLine("[Aetheris] " + msg); }
 
         static void AddLine(string line)
@@ -535,7 +604,7 @@ namespace Aetheris
                 stdin = new StreamWriter(p.StandardInput.BaseStream, new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
-                proc = p; State = "starting"; Started = DateTime.Now; players.Clear();
+                proc = p; State = "starting"; Started = DateTime.Now; players.Clear(); pending.Clear();
                 stopRequested = false; restartPending = false;
                 lastCpu = TimeSpan.Zero; lastWall = DateTime.MinValue;
             }
@@ -586,7 +655,7 @@ namespace Aetheris
                 if (p != proc) return;
                 int code = 0;
                 try { code = p.ExitCode; } catch { }
-                proc = null; stdin = null; players.Clear(); State = "offline";
+                proc = null; stdin = null; players.Clear(); pending.Clear(); State = "offline";
                 bool crashed = !stopRequested && !restartPending;
                 Log("Server stopped" + (code != 0 ? " (exit code " + code + ")" : "") + ".");
                 if (restartPending) restart = true;
@@ -1923,7 +1992,7 @@ namespace Aetheris
                 "playit", c.PlayitPath != "" || c.StartPlayit ? (object)Server.PlayitRunning() : null,
                 "snake", Server.SnakeRules(), "sysram", App.SysRamMb(), "sysfree", App.SysFreeMb(),
                 "icon", App.Configured && File.Exists(Path.Combine(c.ServerDir, "server-icon.png")),
-                "loader", Addons.Loader());
+                "loader", Addons.Loader(), "pending", Server.Pending(), "tasks", c.Tasks.Count(t => t.Enabled));
         }
 
         static object SaveConfig(Req r)
@@ -1936,6 +2005,10 @@ namespace Aetheris
             if (n.ServerDir != "" && !Directory.Exists(n.ServerDir)) throw new Fail("That server folder doesn't exist.");
             if (n.ServerDir != "" && (n.Jar == "" || !File.Exists(Path.Combine(n.ServerDir, n.Jar)))) n.Jar = Config.FindJar(n.ServerDir);
             if (n.PlayitPath != "" && !File.Exists(n.PlayitPath)) throw new Fail("playit.gg program not found at that path.");
+            n.Tasks = App.Cfg.Tasks;   // schedules are saved separately
+            var o = App.Cfg;
+            if (o.Jar != n.Jar || o.JavaPath != n.JavaPath || o.MinRam != n.MinRam || o.MaxRam != n.MaxRam || o.JvmArgs != n.JvmArgs || o.AikarFlags != n.AikarFlags)
+                Server.NeedRestart("Java / RAM settings");
             n.Save();
             App.Cfg = n;
             if (j.ContainsKey("autostart") && j["autostart"] is bool) App.SetAutostart((bool)j["autostart"]);
@@ -2020,6 +2093,7 @@ namespace Aetheris
                         foreach (var kv in d)
                             ch[kv.Key] = kv.Value == null ? "" : kv.Value is bool ? ((bool)kv.Value ? "true" : "false") : Convert.ToString(kv.Value, CultureInfo.InvariantCulture);
                         Props.Write(ch);
+                        Server.NeedRestart("server options");
                         return Ok();
                     }
                     return Jsn.D("props", Props.Read(), "exists", Props.Exists());
@@ -2076,6 +2150,7 @@ namespace Aetheris
                         var name = r.S("name");
                         if (!App.Configured || !Regex.IsMatch(name, @"^[^\\/:*?""<>|]+\.jar$") || !File.Exists(Path.Combine(c.ServerDir, name))) throw new Fail("Jar not found.");
                         c.Jar = name; c.Save();
+                        Server.NeedRestart("server software");
                         return Ok();
                     }
 
@@ -2084,7 +2159,11 @@ namespace Aetheris
                     return null;
 
                 case "/api/install":
-                    return Jsn.D("ok", true, "name", Net.Install(r.S("url"), r.S("name")));
+                    {
+                        var res = Jsn.D("ok", true, "name", Net.Install(r.S("url"), r.S("name")));
+                        Server.NeedRestart("server software");
+                        return res;
+                    }
 
                 case "/api/java":
                     return Jsn.D("version", Net.JavaVersion(r.S("path") != "" ? r.S("path") : c.JavaPath));
@@ -2119,6 +2198,7 @@ namespace Aetheris
                         {
                             if (Directory.Exists(p)) throw new Fail("That's a folder.");
                             File.WriteAllText(p, r.Text(), new UTF8Encoding(false));
+                            if (Regex.IsMatch(p, @"\.(properties|ya?ml|json|toml|cfg|conf|ini|txt|snbt)$", RegexOptions.IgnoreCase)) Server.NeedRestart("edited files");
                             return Ok();
                         }
                         if (!File.Exists(p)) throw new Fail("File not found.");
@@ -2176,8 +2256,25 @@ namespace Aetheris
                         return Ok();
                     }
 
+                case "/api/tasks":
+                    if (r.Method == "POST")
+                    {
+                        var arr = r.Json().ContainsKey("tasks") ? r.Json()["tasks"] as object[] : null;
+                        if (arr == null) throw new Fail("Nothing to save.");
+                        var list = arr.OfType<Dictionary<string, object>>().Select(x => Jsn.S.ConvertToType<TaskDef>(x)).ToList();
+                        if (list.Count > 100) throw new Fail("Too many schedules (max 100).");
+                        foreach (var t in list)
+                        {
+                            t.Normalize();
+                            if (t.Command == "") throw new Fail("Every schedule needs a command.");
+                            if (t.Every == 0 && t.At == "") throw new Fail("\"" + (t.Name != "" ? t.Name : t.Command) + "\" needs an interval or a time of day.");
+                        }
+                        c.Tasks = list; c.Save();
+                    }
+                    return Jsn.D("tasks", c.Tasks);
+
                 case "/api/addons":
-                    if (r.Method == "POST") Addons.Op(r.S("kind"), r.S("op"), r.S("file"));
+                    if (r.Method == "POST") { Addons.Op(r.S("kind"), r.S("op"), r.S("file")); Server.NeedRestart(r.S("kind")); }
                     return Addons.List(r.Method == "POST" ? r.S("kind") : r.Qs("kind"));
 
                 case "/api/addon-upload":
@@ -2187,6 +2284,7 @@ namespace Aetheris
                         Directory.CreateDirectory(dir);
                         var tmp = Path.Combine(dir, ".aetheris-upload-" + Guid.NewGuid().ToString("N") + ".tmp");
                         r.SaveBody(tmp, 4L << 30);
+                        Server.NeedRestart(kind);
                         try { return Addons.Import(kind, tmp, name); }
                         finally { try { if (File.Exists(tmp)) File.Delete(tmp); } catch { } }
                     }
@@ -2197,6 +2295,7 @@ namespace Aetheris
                         if (!Regex.IsMatch(name, @"^[^\\/:*?""<>|]{1,150}\.(jar|zip)$", RegexOptions.IgnoreCase)) throw new Fail("Invalid file name.");
                         Net.DownloadTo(r.S("url"), Path.Combine(Addons.Dir(r.S("kind")), name));
                         Server.Log("Installed " + name + " from Modrinth.");
+                        Server.NeedRestart(r.S("kind"));
                         return Ok();
                     }
 
@@ -2205,6 +2304,7 @@ namespace Aetheris
                     {
                         var d = r.Json().ContainsKey("values") ? r.Json()["values"] as Dictionary<string, object> : null;
                         if (d == null) throw new Fail("Nothing to save.");
+                        Server.NeedRestart("Paper/Spigot options");
                         Bukkit.Set(d.ToDictionary(k => k.Key, k => k.Value is bool ? ((bool)k.Value ? "true" : "false") : Convert.ToString(k.Value, CultureInfo.InvariantCulture)));
                     }
                     return Bukkit.Get();
@@ -2213,7 +2313,7 @@ namespace Aetheris
                     {
                         if (!App.Configured) throw new Fail("Choose your server folder first.");
                         var p = Path.Combine(c.ServerDir, "server-icon.png");
-                        if (r.Method == "DELETE") { if (File.Exists(p)) File.Delete(p); return Ok(); }
+                        if (r.Method == "DELETE") { if (File.Exists(p)) File.Delete(p); Server.NeedRestart("server icon"); return Ok(); }
                         if (r.Method == "POST")
                         {
                             var tmp = p + ".upload";
@@ -2224,6 +2324,7 @@ namespace Aetheris
                             if (!png || w != 64 || h != 64) { File.Delete(tmp); throw new Fail("The server icon must be a 64×64 PNG."); }
                             if (File.Exists(p)) File.Delete(p);
                             File.Move(tmp, p);
+                            Server.NeedRestart("server icon");
                             return Ok();
                         }
                         if (!File.Exists(p)) { r.Send(404, "text/plain", Encoding.UTF8.GetBytes("No icon"), null); return null; }
