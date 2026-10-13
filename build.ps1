@@ -60,7 +60,7 @@ if (-not (Test-Path $ico)) {
 $fw  = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319"
 $csc = Join-Path $fw 'csc.exe'
 $exe = Join-Path $out 'Aetheris.exe'
-& $csc /nologo /target:winexe /platform:x86 /optimize+ /debug- `
+& $csc /nologo /target:winexe /platform:anycpu /optimize+ /debug- `
   "/out:$exe" "/win32icon:$ico" `
   "/resource:$(Join-Path $src 'index.html'),index.html" "/resource:$ico,app.ico" `
   /r:System.Web.Extensions.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll `

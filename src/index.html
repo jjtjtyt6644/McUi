@@ -506,14 +506,14 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <div class="pv"><span class="big" id="stRam">—</span><span class="of" id="stRamOf"></span></div>
       <div class="bar" style="height:7px;margin-top:10px"><i id="ramBar"></i></div>
       <div class="spark" id="ramSpark"></div>
-      <div class="pfoot"><span>Last few minutes</span><span id="ramPeak"></span></div>
+      <div class="pfoot"><span><span class="dot on" style="display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:middle"></span>Live · updates every second</span><span id="ramPeak"></span></div>
     </div>
     <div class="card">
       <div class="card-h" style="margin-bottom:6px"><svg class="ic"><use href="#i-cpu"/></svg><h3>Server CPU</h3><span class="badge n" id="cpuCores"></span></div>
       <div class="pv"><span class="big" id="stCpu">—</span><span class="of">of total CPU</span></div>
       <div class="bar" style="height:7px;margin-top:10px"><i id="cpuBar"></i></div>
       <div class="spark" id="cpuSpark"></div>
-      <div class="pfoot"><span>Last few minutes</span><span id="cpuPeak"></span></div>
+      <div class="pfoot"><span><span class="dot on" style="display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:middle"></span>Live · updates every second</span><span id="cpuPeak"></span></div>
     </div>
   </div>
   <div class="grid2">
@@ -581,7 +581,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 
 <!-- ============ MODS ============ -->
 <section data-page="mods" hidden>
-  <div class="banner warn" id="mVanilla" hidden><svg class="ic"><use href="#i-alert"/></svg><div class="grow"><b>Your server is running Vanilla.</b> Vanilla can't load mods or plugins (datapacks work). Install <b>Fabric</b> for mods or <b>Paper</b> for plugins.</div><a class="btn sm" data-href="#software" tabindex="0" role="link">Open Software</a></div>
+  <div class="banner warn" id="mVanilla" hidden><svg class="ic"><use href="#i-alert"/></svg><div class="grow"><b id="mvTitle">Your server is running Vanilla, so mods won't load.</b><div class="muted" style="font-size:13px" id="mvText"></div></div><button class="btn sm" id="mSwitch"></button></div>
+  <div class="banner info" id="mClient" hidden><svg class="ic"><use href="#i-users"/></svg><div class="grow"><b>Players need these mods too.</b><div class="muted" style="font-size:13px">On a modded server, everyone must have the same mods (except server-only ones) before they can join. Make a client modpack and send it to your friends: it's one file they import into the Modrinth App, Prism Launcher or CurseForge.</div></div><button class="btn sm" id="mPack"><svg class="ic sm"><use href="#i-box"/></svg>Make client modpack</button></div>
   <div class="card">
     <div class="card-h">
       <div class="seg" id="mView" role="tablist"><button class="on" data-v="installed">Installed</button><button data-v="browse">Browse Modrinth</button></div>
@@ -599,7 +600,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <form class="toolbar" id="mSearch">
         <input type="search" name="q" placeholder="Search Modrinth…" spellcheck="false">
         <select name="loader" id="mLoader" aria-label="Loader"><option>fabric</option><option>quilt</option><option>forge</option><option>neoforge</option></select>
-        <input name="mc" id="mMc" placeholder="MC version" style="width:120px" aria-label="Minecraft version" spellcheck="false">
+        <input name="mc" id="mMc" placeholder="MC version" oninput="delete this.dataset.auto" style="width:120px" aria-label="Minecraft version" spellcheck="false">
         <button class="btn"><svg class="ic sm"><use href="#i-search"/></svg>Search</button>
       </form>
       <div class="mgrid" id="mResults"></div>
@@ -863,6 +864,16 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <li><b>.mrpack</b> (Modrinth modpack): Aetheris downloads every server-side mod in it and applies its config overrides. It then tells you which loader and version the pack needs. Install that in <a data-href="#software" tabindex="0" role="link">Software</a>.</li>
 <li><b>Browse Modrinth:</b> search and click Install. Only versions that match your Minecraft version and loader are shown. Required dependencies (like Fabric API) are installed automatically.</li>
 </ul>
+<h4>Making mods work (Vanilla → Fabric)</h4>
+<p>A plain <code>server.jar</code> is Vanilla, and Vanilla ignores the <code>mods</code> folder. On the Mods page, click <b>Switch to Fabric</b>. Aetheris downloads Fabric for <b>your exact Minecraft version</b> (read from your server jar), and your world and settings stay. Restart, and the mods load.</p>
+<h4>Everyone needs the same mods</h4>
+<p>Mods that add things (blocks, items, mobs…) must also be installed by every player, in the same version, or they can't join. The labels show which is which: <span class="badge">players need it</span>, <span class="badge g">optional for players</span> (works without it on the player's side, e.g. Lithium), <span class="badge n">server only</span> (players don't need it, e.g. Chunky) and <span class="badge y">client only</span> (does nothing on a server, so remove it). <span class="badge r">needs MC …</span> means the mod was made for a different Minecraft version and will probably crash the server.</p>
+<p>Click <b>Make client modpack</b> to give everyone the exact set:</p>
+<ul>
+<li><b>.mrpack:</b> friends import this one file into the <b>Modrinth App</b>, <b>Prism Launcher</b> or the <b>CurseForge app</b>. It installs the right Minecraft version, Fabric and all the mods automatically.</li>
+<li><b>.zip:</b> the mod files plus a “HOW TO INSTALL.txt” for manual setup.</li>
+</ul>
+<p>Server-only mods and mods that are optional for players (according to Modrinth) are left out of the pack. Make a new pack whenever you add or update mods, and send it again.</p>
 <h4>Managing</h4>
 <p>The switch next to each item enables or disables it. Disabled files are renamed to <code>.disabled</code> and the server ignores them. Mod names and versions are read from inside each jar. Changes apply after a restart. Datapacks can also be reloaded live with the <code>reload</code> command.</p>
 <div class="warn">A mod made for a different Minecraft version or loader is the #1 cause of crashes on start. If the server crashes after adding something, disable the newest file and restart.</div>
@@ -1255,10 +1266,10 @@ async function poll(){
   clearTimeout(S.pt);
   if(document.hidden&&S.polled)return;
   S.polled=true;
-  try{const s=await api('state');setLost(false);S.fails=0;renderState(s)}
+  try{const s=await api('state'+(S.needHist?'?hist=1':''));S.needHist=false;setLost(false);S.fails=0;renderState(s)}
   catch(e){if(++S.fails>1)setLost(true)}
   // reconnect with backoff (1s, 2s, 4s … max 10s) while the connection is down
-  const delay=S.fails>1?Math.min(10000,1000*2**(S.fails-2)):/starting|stopping/.test(S.state.state)?1000:2500;
+  const delay=S.fails>1?Math.min(10000,1000*2**(S.fails-2)):S.state.state!=='offline'?1000:2500;
   if(S.fails>1)$('#lostTxt').textContent=`Reconnecting in ${Math.round(delay/1000)}s (attempt ${S.fails-1})…`;
   S.pt=setTimeout(poll,delay);
 }
@@ -1314,6 +1325,7 @@ function renderState(s){
   $('#grOffline').hidden=s.state!=='offline';
   $('#wRunning').hidden=s.state==='offline';
   $$('.w-off').forEach(b=>b.disabled=s.state!=='offline');
+  if(prev.state!==s.state&&S.page==='mods')LOAD.mods();
   if(prev.state!==s.state){
     if(S.page==='gamerules'&&s.state==='online')loadRules();
     if(S.page==='worlds')LOAD.worlds();
@@ -1324,10 +1336,10 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden){poll();co
 
 /* ---------- live performance ---------- */
 const gb=mb=>mb>=1024?(mb/1024).toFixed(2)+' GB':Math.round(mb)+' MB';
-S.hist={ram:[],cpu:[]};
+S.hist={ram:[],cpu:[]};S.lastT=0;S.needHist=true;
 function loaderKind(l){return /fabric|quilt|forge|neoforge/.test(l)?'mods':/paper|purpur|spigot|bukkit|folia/.test(l)?'plugins':''}
 function spark(el,data,max,color){
-  const w=300,h=70,N=72;
+  const w=300,h=70,N=120;
   if(data.length<2){el.innerHTML=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><line x1="0" y1="${h-1}" x2="${w}" y2="${h-1}" stroke="#ffffff14"/></svg>`;return}
   const step=w/(N-1),off=w-(data.length-1)*step;
   const pts=data.map((v,i)=>[off+i*step,h-3-(Math.min(v,max)/max)*(h-8)]);
@@ -1337,7 +1349,12 @@ function spark(el,data,max,color){
 }
 function renderPerf(s){
   const off=s.state==='offline';
-  if(off)S.hist={ram:[],cpu:[]};else{S.hist.ram.push(s.ram);S.hist.cpu.push(s.cpu);if(S.hist.ram.length>72){S.hist.ram.shift();S.hist.cpu.shift()}}
+  if(off){S.hist={ram:[],cpu:[]};S.lastT=0;S.needHist=true}
+  else{
+    if(s.hist){S.hist={ram:s.hist.map(x=>x.ram),cpu:s.hist.map(x=>x.cpu)};S.lastT=s.hist.length?s.hist[s.hist.length-1].t:0}
+    else if(s.sample&&s.sample.t>S.lastT){S.hist.ram.push(s.sample.ram);S.hist.cpu.push(s.sample.cpu);S.lastT=s.sample.t}
+    while(S.hist.ram.length>120){S.hist.ram.shift();S.hist.cpu.shift()}
+  }
   const pct=off?0:Math.round(s.ram/s.xmx*100);
   $('#stRam').textContent=off?'—':gb(s.ram);
   $('#stRamOf').textContent=off?'Server is offline':`of ${gb(s.xmx)} allocated`;
@@ -1346,6 +1363,7 @@ function renderPerf(s){
   $('#stCpu').textContent=off?'—':s.cpu.toFixed(1)+'%';
   $('#cpuBar').style.width=(off?0:Math.min(100,s.cpu))+'%';
   $('#cpuCores').textContent=navigator.hardwareConcurrency?navigator.hardwareConcurrency+' threads':'';
+  $('#stRam').title=!off&&s.sample&&s.sample.procs>1?`Java + ${s.sample.procs-1} child process${s.sample.procs>2?'es':''} (measured together)`:'Private memory of the server process (same as Task Manager)';
   const free=s.sysfree||0;$('#stSys').textContent=free?gb(free):'—';$('#stSys').title=`${gb(free)} free of ${gb(s.sysram)}`;
   $('#sysBar').style.width=(s.sysram?100-free/s.sysram*100:0)+'%';
   $('#sideRam').textContent=off?'—':`${gb(s.ram)} / ${gb(s.xmx)}`;$('#sideRamBar').style.width=Math.min(100,pct)+'%';
@@ -1751,18 +1769,68 @@ $('#wReset').onclick=async()=>{
 /* ---------- mods / plugins / datapacks ---------- */
 S.mview='installed';
 function setMKind(k){S.mkind=k;$$('#mKind button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));$('#mLoader').hidden=k!=='mods'}
+function mBanner(){
+  const lk=loaderKind(S.state.loader),mc=S.state.mc||'';
+  const need=S.mkind==='datapacks'?'':S.mkind;
+  const wrong=need&&lk!==need;
+  $('#mVanilla').hidden=!wrong;
+  $('#mClient').hidden=!(S.mkind==='mods'&&lk==='mods'&&S.mview==='installed'&&S.mdata&&S.mdata.items.some(i=>i.enabled&&i.env!=='server'));
+  if(!wrong)return;
+  const cur=S.state.loader==='vanilla'?'Vanilla':S.state.loader;
+  if(need==='mods'){
+    $('#mvTitle').textContent=`Your server runs ${cur}, so mods won't load.`;
+    $('#mvText').innerHTML=`Mods need a mod loader. Switching to <b>Fabric${mc?' '+esc(mc):''}</b> keeps your world, players and settings. Only the server software changes.`;
+    $('#mSwitch').innerHTML=ic('down')+`Switch to Fabric${mc?' '+esc(mc):''}`;$('#mSwitch').dataset.to='fabric';
+  }else{
+    $('#mvTitle').textContent=`Your server runs ${cur}, so plugins won't load.`;
+    $('#mvText').innerHTML=`Plugins need Paper. Switching to <b>Paper${mc?' '+esc(mc):''}</b> keeps your world, players and settings.`;
+    $('#mSwitch').innerHTML=ic('down')+`Switch to Paper${mc?' '+esc(mc):''}`;$('#mSwitch').dataset.to='paper';
+  }
+  $('#mSwitch').disabled=!mc;$('#mSwitch').title=mc?'':'Start the server once so Aetheris can detect your Minecraft version, or install software in Software.';
+}
+$('#mSwitch').onclick=e=>{
+  const to=e.currentTarget.dataset.to,mc=S.state.mc;
+  busy(e.currentTarget,async()=>{
+    if(!await confirmBox(`Switch to ${to==='fabric'?'Fabric':'Paper'} ${esc(mc)}?`,`Aetheris downloads ${to==='fabric'?'Fabric':'Paper'} for Minecraft <b>${esc(mc)}</b> and uses it on the next start. Your world and settings stay. You can switch back any time in Software.${to==='fabric'?' Players will also need Fabric and the same mods. Use “Make client modpack” after adding mods.':''}`,false,'Switch'))return;
+    toast(`Downloading ${to} ${mc}…`,'info');
+    if(to==='paper')await SW.paper.list();
+    const url=await SW[to].url(mc);
+    await api('install',{url,name:`${to}-${mc}.jar`});
+    await poll();LOAD.mods();
+    toast(`Switched to ${to==='fabric'?'Fabric':'Paper'} ${mc}.${S.state.state!=='offline'?' Restart the server to load it.':' Start the server to use it.'}`,'ok',S.state.state!=='offline'?{label:'Restart',fn:()=>power('restart')}:null);
+  });
+};
+$('#mPack').onclick=e=>busy(e.currentTarget,async()=>{
+  toast('Building the client modpack…','info');
+  const r=await api('clientpack',{});
+  const dl=p=>`/api/download?path=${encodeURIComponent(p)}`;
+  await modal({title:'Client modpack ready',ok:'Done',cancel:'',html:`<p>${r.count} mod${r.count===1?'':'s'} for Minecraft <b>${esc(r.mc||'?')}</b> (${esc(r.loader)}). ${r.optional?`${r.optional} server-only or optional mod${r.optional===1?' was':'s were'} left out, because players can join without them.`:''} Libraries the mods depend on (like Fabric API) are included. ${r.linked} link to Modrinth, so the pack stays small.</p>
+    <div class="row" style="margin:6px 0 14px"><button class="btn" data-dl="${esc(dl(r.mrpack))}">${ic('down')}Download .mrpack</button><button class="btn ghost" data-dl="${esc(dl(r.zip))}">${ic('down')}Download .zip</button></div>
+    <p><b>.mrpack (easiest):</b> friends import it into the Modrinth App, Prism Launcher or the CurseForge app. Loader, version and mods are all set up automatically.</p>
+    <p><b>.zip:</b> for manual install. It includes a “HOW TO INSTALL.txt”.</p>
+    <p class="dim" style="font-size:12.5px">Both files are also saved in your server's <code>client-pack</code> folder. Make a new pack whenever you add or update mods.</p>`,
+    onOpen:m=>m.addEventListener('click',ev=>{const b=ev.target.closest('[data-dl]');if(b){const a=document.createElement('a');a.href=b.dataset.dl;a.download='';document.body.append(a);a.click();a.remove()}})});
+});
+function mcMismatch(needs,mc){
+  if(!needs||!mc)return false;
+  const want=mc.split('.').slice(0,2).join('.');
+  const nums=String(needs).match(/\d+\.\d+(?:\.\d+)?/g);
+  return !!(nums&&nums.length&&!nums.some(n=>n.split('.').slice(0,2).join('.')===want));
+}
+const sideBadge=(e,side)=>side==='unsupported'?'<span class="badge n" title="Modrinth: server-side only">server only</span>':side==='optional'?'<span class="badge g" title="Modrinth: players can join without it">optional for players</span>':side==='required'?'<span class="badge" title="Modrinth: every player must have this mod">players need it</span>':e==='server'?'<span class="badge n" title="Only the server needs this">server only</span>':e==='client'?'<span class="badge y" title="This is a client-side mod. It does nothing on a server.">client only</span>':'<span class="badge" title="Every player must have this mod to join">players need it</span>';
 LOAD.mods=async()=>{
   if(!S.mkind)setMKind(loaderKind(S.state.loader)||'mods');
-  $('#mVanilla').hidden=S.state.loader!=='vanilla'||S.mkind==='datapacks';
+  mBanner();
   if(S.mview==='browse'){if(!$('#mResults').childElementCount)mSearch();return}
   try{
     const d=await api('addons?kind='+S.mkind);S.mdata=d;
-    if(!$('#mMc').value)$('#mMc').value=d.mc||'';
+    if(!$('#mMc').value||$('#mMc').dataset.auto)$('#mMc').value=d.mc||'',$('#mMc').dataset.auto='1';
     if(/fabric|quilt|forge|neoforge/.test(d.loader))$('#mLoader').value=d.loader;
     const label={mods:'mods',plugins:'plugins',datapacks:'datapacks'}[S.mkind];
-    $('#mList').innerHTML=d.items.length?'<div class="list">'+d.items.map(m=>`<div class="li ${m.enabled?'':'off'}"><span class="av">${ic(S.mkind==='datapacks'?'archive':'puzzle')}</span><div class="grow"><div class="nm">${esc(m.name)}${m.version?`<span class="vtag">${esc(m.version)}</span>`:''}${m.enabled?'':' <span class="badge n">disabled</span>'}</div><div class="meta" title="${esc(m.desc||'')}">${esc(m.file)} · ${fmtB(m.size)}${m.desc?' · '+esc(m.desc):''}</div></div><div class="acts"><span class="sw" title="${m.enabled?'Disable':'Enable'}"><input type="checkbox" data-mt="${esc(m.file)}" ${m.enabled?'checked':''} aria-label="Enable ${esc(m.name)}"><span></span></span><button class="icon-btn danger" data-md="${esc(m.file)}" title="Delete" aria-label="Delete ${esc(m.name)}">${ic('trash','')}</button></div></div>`).join('')+'</div>'
+    $('#mList').innerHTML=d.items.length?'<div class="list">'+d.items.map(m=>`<div class="li ${m.enabled?'':'off'}"><span class="av">${ic(S.mkind==='datapacks'?'archive':'puzzle')}</span><div class="grow"><div class="nm">${esc(m.name)}${m.version?`<span class="vtag">${esc(m.version)}</span>`:''} ${S.mkind==='mods'?(m.players===true?`<span class="badge" title="${m.neededBy?'Required by '+esc(m.neededBy)+', which players need':'Every player must have this mod to join'}">players need it${m.neededBy?' · for '+esc(m.neededBy):''}</span>`:m.players===false?(m.side==='optional'?'<span class="badge g" title="Players can join without it">optional for players</span>':m.env==='client'?'<span class="badge y" title="Client-side mod: does nothing on a server">client only</span>':'<span class="badge n" title="Only the server needs this">server only</span>'):''):''} ${S.mkind==='mods'&&mcMismatch(m.needs,d.mc)?`<span class="badge r" title="This mod says it needs Minecraft ${esc(m.needs)}">needs MC ${esc(m.needs)}</span>`:''}${m.enabled?'':' <span class="badge n">disabled</span>'}</div><div class="meta" title="${esc(m.desc||'')}">${esc(m.file)} · ${fmtB(m.size)}${m.desc?' · '+esc(m.desc):''}</div></div><div class="acts"><span class="sw" title="${m.enabled?'Disable':'Enable'}"><input type="checkbox" data-mt="${esc(m.file)}" ${m.enabled?'checked':''} aria-label="Enable ${esc(m.name)}"><span></span></span><button class="icon-btn danger" data-md="${esc(m.file)}" title="Delete" aria-label="Delete ${esc(m.name)}">${ic('trash','')}</button></div></div>`).join('')+'</div>'
       :`<div class="empty">${ic('puzzle','')}<div>No ${label} installed yet. Upload some, or find them on Modrinth.</div></div>`;
-    $('#mNote').textContent=`${d.items.length} ${label} in /${d.dir} · changes apply after a server restart.`;
+    $('#mNote').textContent=`${d.items.length} ${label} in /${d.dir} · Minecraft ${d.mc||'version unknown'} · ${d.loader}${d.loaderVersion?' '+d.loaderVersion:''} · changes apply after a server restart.`;
+    mBanner();
   }catch(e){toast(e.message,'err')}
 };
 $('#mView').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.mview=b.dataset.v;$$('#mView button').forEach(x=>x.classList.toggle('on',x===b));$('#mInstalled').hidden=S.mview!=='installed';$('#mBrowse').hidden=S.mview!=='browse';LOAD.mods()};
@@ -1810,7 +1878,7 @@ async function mSearch(){
   $('#mResults').innerHTML=`<div class="empty" style="grid-column:1/-1"><div>Searching Modrinth…</div></div>`;
   try{
     const r=await fetchJ(url);
-    $('#mResults').innerHTML=r.hits.length?r.hits.map(h=>`<div class="mcard">${h.icon_url?`<img src="${esc(h.icon_url)}" alt="" loading="lazy">`:`<span class="mi">${ic('puzzle','lg')}</span>`}<div class="grow" style="min-width:0"><div class="t">${esc(h.title)}</div><div class="s">by ${esc(h.author)} · ${Intl.NumberFormat('en',{notation:'compact'}).format(h.downloads)} downloads</div><div class="d">${esc(h.description)}</div><button class="btn sm" data-mi="${esc(h.project_id)}" data-mn="${esc(h.title)}">${ic('down')}Install</button></div></div>`).join('')
+    $('#mResults').innerHTML=r.hits.length?r.hits.map(h=>`<div class="mcard">${h.icon_url?`<img src="${esc(h.icon_url)}" alt="" loading="lazy">`:`<span class="mi">${ic('puzzle','lg')}</span>`}<div class="grow" style="min-width:0"><div class="t">${esc(h.title)}</div><div class="s">by ${esc(h.author)} · ${Intl.NumberFormat('en',{notation:'compact'}).format(h.downloads)} downloads ${S.mkind==='mods'?(h.client_side==='unsupported'?'<span class="badge n">server only</span>':h.client_side==='required'?'<span class="badge">players need it</span>':'<span class="badge g">optional for players</span>'):''}</div><div class="d">${esc(h.description)}</div><button class="btn sm" data-mi="${esc(h.project_id)}" data-mn="${esc(h.title)}">${ic('down')}Install</button></div></div>`).join('')
       :`<div class="empty" style="grid-column:1/-1">${ic('search','')}<div>Nothing found${mc?' for Minecraft '+esc(mc):''}. Try another search or version.</div></div>`;
   }catch(e){$('#mResults').innerHTML='';toast('Modrinth search failed: '+e.message,'err')}
 }

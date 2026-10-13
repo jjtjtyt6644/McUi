@@ -23,14 +23,21 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.4.0.0")]
-[assembly: AssemblyFileVersion("1.4.0.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyFileVersion("1.5.0.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.4.0";
+        public const string Version = "1.5.0";
+
+        static string Fnv(string s)
+        {
+            uint h = 2166136261;
+            foreach (char ch in s) { h ^= ch; h *= 16777619; }
+            return h.ToString("x8");
+        }
 
         [STAThread]
         static void Main(string[] args)
@@ -42,7 +49,7 @@ namespace Aetheris
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             // one instance per install folder (so separate servers can each have their own panel)
-            var mutex = new Mutex(true, "Local\\AetherisPanel_" + AppDomain.CurrentDomain.BaseDirectory.ToLowerInvariant().GetHashCode().ToString("x"), out created);
+            var mutex = new Mutex(true, "Local\\AetherisPanel_" + Fnv(AppDomain.CurrentDomain.BaseDirectory.ToLowerInvariant()), out created);
             App.Cfg = Config.Load();
             bool startServerAfter = false;
 
@@ -453,7 +460,8 @@ namespace Aetheris
         }
 
         // Called on every panel request; once the panel goes quiet, trim our RAM back to ~2 MB.
-        public static void Touch() { if (trimTimer != null) trimTimer.Change(10000, Timeout.Infinite); }
+        public static DateTime LastTouch;
+        public static void Touch() { LastTouch = DateTime.Now; if (trimTimer != null) trimTimer.Change(10000, Timeout.Infinite); }
 
         public static void Trim()
         {
@@ -978,6 +986,7 @@ namespace Aetheris
                 lastCpu = TimeSpan.Zero; lastWall = DateTime.MinValue;
             }
             StartPlayit();
+            StartSampler();
             Fire();
             return null;
         }
@@ -1211,29 +1220,120 @@ namespace Aetheris
             return null;
         }
 
-        public static void Stats(out long ramMb, out double cpu)
+        // ---- live RAM / CPU of the whole server process tree (Java plus anything it started, e.g. when "java" is a launcher stub)
+        [DllImport("kernel32.dll")] static extern bool QueryInformationJobObject(IntPtr job, int cls, IntPtr info, int len, IntPtr ret);
+        [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+        [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+
+        public class Sample { public long t; public long ram; public double cpu; public int procs; }
+        static readonly List<Sample> hist = new List<Sample>();
+        static Sample last = new Sample();
+        static System.Threading.Timer sampler;
+        static long prevCpu100ns = -1; static DateTime prevWall;
+
+        static List<int> TreePids(Process p)
         {
-            ramMb = 0; cpu = 0;
-            Process p;
-            lock (L) p = proc;
-            if (p == null) return;
+            var pids = new List<int>();
+            if (job != IntPtr.Zero)
+            {
+                int size = 8 + 1024 * IntPtr.Size;
+                IntPtr buf = Marshal.AllocHGlobal(size);
+                try
+                {
+                    if (QueryInformationJobObject(job, 3, buf, size, IntPtr.Zero))
+                    {
+                        int n = Marshal.ReadInt32(buf, 4);
+                        for (int i = 0; i < n; i++)
+                            pids.Add(IntPtr.Size == 8 ? (int)Marshal.ReadInt64(buf, 8 + i * 8) : Marshal.ReadInt32(buf, 8 + i * 4));
+                    }
+                }
+                finally { Marshal.FreeHGlobal(buf); }
+            }
+            if (pids.Count == 0) try { pids.Add(p.Id); } catch { }
+            return pids;
+        }
+
+        static long PrivateMb(int pid)
+        {
+            IntPtr h = OpenProcess(0x1000 | 0x0400, false, pid);   // QUERY_LIMITED | QUERY_INFORMATION
+            if (h == IntPtr.Zero) h = OpenProcess(0x1000, false, pid);
+            if (h == IntPtr.Zero) return 0;
             try
             {
-                p.Refresh();
-                ramMb = p.WorkingSet64 / 1048576;
-                // Task Manager's "Memory" column is the private working set
                 var m = new Pmc2(); m.cb = (uint)Marshal.SizeOf(typeof(Pmc2));
-                if (GetProcessMemoryInfo(p.Handle, ref m, m.cb) && m.PrivateWorkingSetSize.ToUInt64() > 0)
-                    ramMb = (long)(m.PrivateWorkingSetSize.ToUInt64() / 1048576UL);
-                var now = DateTime.UtcNow; var t = p.TotalProcessorTime;
-                if (lastWall != DateTime.MinValue)
+                if (!GetProcessMemoryInfo(h, ref m, m.cb)) return 0;
+                ulong v = m.PrivateWorkingSetSize.ToUInt64();
+                if (v == 0) v = m.WorkingSetSize.ToUInt64();
+                return (long)(v / 1048576UL);
+            }
+            finally { CloseHandle(h); }
+        }
+
+        static long TreeCpu100ns(Process p)
+        {
+            if (job != IntPtr.Zero)
+            {
+                IntPtr buf = Marshal.AllocHGlobal(64);
+                try
                 {
-                    double wall = (now - lastWall).TotalMilliseconds;
-                    if (wall > 0) cpu = Math.Max(0, Math.Min(100, (t - lastCpu).TotalMilliseconds / wall / Environment.ProcessorCount * 100));
+                    if (QueryInformationJobObject(job, 1, buf, 48, IntPtr.Zero))
+                        return Marshal.ReadInt64(buf, 0) + Marshal.ReadInt64(buf, 8);   // total user + kernel time of every process in the job
                 }
-                lastCpu = t; lastWall = now;
+                finally { Marshal.FreeHGlobal(buf); }
+            }
+            try { p.Refresh(); return p.TotalProcessorTime.Ticks; } catch { return -1; }
+        }
+
+        static void StartSampler()
+        {
+            lock (hist) { hist.Clear(); last = new Sample(); prevCpu100ns = -1; }
+            if (sampler == null) sampler = new System.Threading.Timer(_ => SampleNow(), null, 500, Timeout.Infinite);
+            else sampler.Change(500, Timeout.Infinite);
+        }
+
+        static void SampleNow()
+        {
+            Process p;
+            lock (L) p = proc;
+            if (p == null) return;   // server stopped: sampler goes quiet (0% CPU when idle)
+            try
+            {
+                var pids = TreePids(p);
+                long ram = 0;
+                foreach (var id in pids) ram += PrivateMb(id);
+                long cpuT = TreeCpu100ns(p);
+                var now = DateTime.UtcNow;
+                double cpu = 0;
+                lock (hist)
+                {
+                    if (prevCpu100ns >= 0 && cpuT >= prevCpu100ns)
+                    {
+                        double wallMs = (now - prevWall).TotalMilliseconds;
+                        if (wallMs > 0) cpu = Math.Max(0, Math.Min(100, (cpuT - prevCpu100ns) / 10000.0 / wallMs / Environment.ProcessorCount * 100));
+                    }
+                    prevCpu100ns = cpuT; prevWall = now;
+                    last = new Sample { t = Jsn.Ms(now), ram = ram, cpu = Math.Round(cpu, 1), procs = pids.Count };
+                    hist.Add(last);
+                    if (hist.Count > 400) hist.RemoveRange(0, hist.Count - 400);
+                }
             }
             catch { }
+            // every second while someone watches the panel, every 5 s otherwise (keeps a short history for the graphs)
+            int next = (DateTime.Now - App.LastTouch).TotalSeconds < 15 ? 1000 : 5000;
+            try { sampler.Change(next, Timeout.Infinite); } catch { }
+        }
+
+        public static Sample Latest() { lock (hist) return last; }
+        public static Sample[] History(long since)
+        {
+            lock (hist) return hist.Where(x => x.t > since && x.t > Jsn.Ms(DateTime.UtcNow) - 6 * 60000).ToArray();
+        }
+
+        public static void Stats(out long ramMb, out double cpu)
+        {
+            var s = Latest();
+            bool running; lock (L) running = proc != null;
+            ramMb = running ? s.ram : 0; cpu = running ? s.cpu : 0;
         }
 
         public static bool SnakeRules()
@@ -1794,11 +1894,62 @@ namespace Aetheris
             return "vanilla";
         }
 
+        static string verKey, verVal = "", loaderVer = "";
+
         public static string McVersion()
         {
             if (!string.IsNullOrEmpty(Server.Version)) return Server.Version;
+            JarInfo();
+            if (verVal != "") return verVal;
             var m = Regex.Match(App.Cfg.Jar ?? "", @"\d+\.\d+(?:\.\d+)?");
             return m.Success ? m.Value : "";
+        }
+
+        public static string LoaderVersion() { JarInfo(); return loaderVer; }
+
+        // Reads the Minecraft version from inside the server jar (version.json / install.properties), cached per jar.
+        static void JarInfo()
+        {
+            try
+            {
+                if (!App.Configured || App.Cfg.Jar == "") return;
+                var path = Path.Combine(App.Cfg.ServerDir, App.Cfg.Jar);
+                if (!File.Exists(path)) return;
+                var key = path + "|" + File.GetLastWriteTimeUtc(path).Ticks;
+                if (key == verKey) return;
+                verKey = key; verVal = ""; loaderVer = "";
+                using (var za = ZipFile.OpenRead(path))
+                {
+                    var e = za.GetEntry("version.json");
+                    if (e != null)
+                    {
+                        var d = Jsn.S.DeserializeObject(ReadEntry(e)) as Dictionary<string, object>;
+                        if (d != null && d.ContainsKey("id")) verVal = Convert.ToString(d["id"]);
+                    }
+                    e = za.GetEntry("install.properties");
+                    if (e != null)
+                    {
+                        var t = ReadEntry(e);
+                        var g = Regex.Match(t, @"(?m)^game-version\s*=\s*(\S+)"); if (g.Success && verVal == "") verVal = g.Groups[1].Value;
+                        var lv = Regex.Match(t, @"(?m)^fabric-loader-version\s*=\s*(\S+)"); if (lv.Success) loaderVer = lv.Groups[1].Value;
+                    }
+                }
+                if (loaderVer == "") { var lm = Regex.Match(App.Cfg.Jar, @"loader\.([0-9][^-]*)"); if (lm.Success) loaderVer = lm.Groups[1].Value; }
+                if (verVal == "")
+                {
+                    var log = Path.Combine(App.Cfg.ServerDir, @"logs\latest.log");
+                    if (File.Exists(log))
+                        using (var fs = new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                        using (var sr = new StreamReader(fs))
+                            for (int i = 0; i < 300; i++)
+                            {
+                                var l = sr.ReadLine(); if (l == null) break;
+                                var m = Regex.Match(l, @"Starting minecraft server version (\S+)");
+                                if (m.Success) { verVal = m.Groups[1].Value; break; }
+                            }
+                }
+            }
+            catch { }
         }
 
         static Dictionary<string, object> JarMeta(string path)
@@ -1811,24 +1962,255 @@ namespace Aetheris
                     if (e != null)
                     {
                         var d = Jsn.S.DeserializeObject(ReadEntry(e)) as Dictionary<string, object>;
-                        if (d != null) return Jsn.D("name", d.ContainsKey("name") ? d["name"] : null, "version", d.ContainsKey("version") ? d["version"] : null, "desc", d.ContainsKey("description") ? d["description"] : null);
+                        if (d != null)
+                        {
+                            var dep = d.ContainsKey("depends") ? d["depends"] as Dictionary<string, object> : null;
+                            object mc = dep != null && dep.ContainsKey("minecraft") ? dep["minecraft"] : null;
+                            if (mc is object[]) mc = string.Join(" || ", ((object[])mc).Select(Convert.ToString));
+                            return Jsn.D("name", d.ContainsKey("name") ? d["name"] : null, "version", d.ContainsKey("version") ? d["version"] : null,
+                                "desc", d.ContainsKey("description") ? d["description"] : null,
+                                "env", d.ContainsKey("environment") ? Convert.ToString(d["environment"]) : "*", "mc", mc != null ? Convert.ToString(mc) : null,
+                                "id", d.ContainsKey("id") ? Convert.ToString(d["id"]) : null, "deps", dep != null ? dep.Keys.ToArray() : new string[0]);
+                        }
                     }
                     e = za.GetEntry("META-INF/neoforge.mods.toml") ?? za.GetEntry("META-INF/mods.toml");
                     if (e != null)
                     {
                         var t = ReadEntry(e);
-                        return Jsn.D("name", Toml(t, "displayName"), "version", Toml(t, "version"), "desc", Toml(t, "description"));
+                        return Jsn.D("name", Toml(t, "displayName"), "version", Toml(t, "version"), "desc", Toml(t, "description"), "env", "*", "mc", null);
                     }
                     e = za.GetEntry("paper-plugin.yml") ?? za.GetEntry("plugin.yml");
                     if (e != null)
                     {
                         var t = ReadEntry(e);
-                        return Jsn.D("name", Yml(t, "name"), "version", Yml(t, "version"), "desc", Yml(t, "description"));
+                        return Jsn.D("name", Yml(t, "name"), "version", Yml(t, "version"), "desc", Yml(t, "description"), "env", "server", "mc", null);
                     }
                 }
             }
             catch { }
             return null;
+        }
+
+        // Builds a client modpack so every player has exactly the server's mods:
+        // a Modrinth .mrpack (one-click import in Modrinth App / Prism / CurseForge) and a plain .zip.
+        public static object ClientPack()
+        {
+            var dir = Dir("mods");
+            if (!Directory.Exists(dir)) throw new Fail("There are no mods yet.");
+            var loader = Loader();
+            if (!Regex.IsMatch(loader, "fabric|quilt|forge|neoforge")) throw new Fail("Your server isn't a mod loader (Fabric, Quilt, Forge or NeoForge) yet.");
+            var mc = McVersion();
+            var all = new DirectoryInfo(dir).GetFiles("*.jar").ToList();
+            var sides = Sides(all);
+            Dictionary<string, string> why;
+            var need = PlayerSet(all, sides, out why);
+            var files = all.Where(f => need.Contains(f.Name)).ToList();
+            int skippedOptional = all.Count - files.Count;
+            if (files.Count == 0) throw new Fail("None of your mods are needed by players. They're all server-only or optional, so players can join with plain Fabric/Minecraft.");
+
+            var hashes = new Dictionary<string, string[]>();   // file -> sha1, sha512
+            foreach (var f in files)
+                using (var sha1 = SHA1.Create()) using (var sha512 = SHA512.Create())
+                {
+                    var b = File.ReadAllBytes(f.FullName);
+                    hashes[f.Name] = new[] { Hex(sha1.ComputeHash(b)), Hex(sha512.ComputeHash(b)) };
+                }
+            Dictionary<string, object> known = null;
+            try
+            {
+                var body = Jsn.S.Serialize(Jsn.D("hashes", hashes.Values.Select(h => h[0]).ToArray(), "algorithm", "sha1"));
+                known = Jsn.S.DeserializeObject(Net.PostJson("https://api.modrinth.com/v2/version_files", body)) as Dictionary<string, object>;
+            }
+            catch { }
+            known = known ?? new Dictionary<string, object>();
+
+            var outDir = Path.Combine(App.Cfg.ServerDir, "client-pack");
+            Directory.CreateDirectory(outDir);
+            string stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm");
+            string baseName = "client-modpack-" + (mc != "" ? mc + "-" : "") + stamp;
+            var index = new List<object>();
+            int fromModrinth = 0;
+            var mrpack = Path.Combine(outDir, baseName + ".mrpack");
+            var zip = Path.Combine(outDir, baseName + ".zip");
+            using (var fs = new FileStream(mrpack, FileMode.Create))
+            using (var za = new ZipArchive(fs, ZipArchiveMode.Create))
+            {
+                foreach (var f in files)
+                {
+                    var h = hashes[f.Name];
+                    var v = known.ContainsKey(h[0]) ? known[h[0]] as Dictionary<string, object> : null;
+                    string url = null;
+                    if (v != null)
+                        foreach (var o in (v.ContainsKey("files") ? v["files"] as object[] : null) ?? new object[0])
+                        {
+                            var fd = o as Dictionary<string, object>;
+                            var fh = fd != null && fd.ContainsKey("hashes") ? fd["hashes"] as Dictionary<string, object> : null;
+                            if (fh != null && fh.ContainsKey("sha1") && Convert.ToString(fh["sha1"]) == h[0]) url = Convert.ToString(fd["url"]);
+                        }
+                    if (url != null)
+                    {
+                        fromModrinth++;
+                        index.Add(Jsn.D("path", "mods/" + f.Name, "hashes", Jsn.D("sha1", h[0], "sha512", h[1]),
+                            "env", Jsn.D("client", "required", "server", "required"), "downloads", new[] { url }, "fileSize", f.Length));
+                    }
+                    else za.CreateEntryFromFile(f.FullName, "overrides/mods/" + f.Name, CompressionLevel.Fastest);
+                }
+                var deps = new Dictionary<string, object>();
+                if (mc != "") deps["minecraft"] = mc;
+                var lv = LoaderVersion();
+                if (loader == "fabric") deps["fabric-loader"] = lv != "" ? lv : LatestFabricLoader();
+                else if (loader == "quilt") deps["quilt-loader"] = lv != "" ? lv : "*";
+                var e = za.CreateEntry("modrinth.index.json");
+                using (var w = new StreamWriter(e.Open(), new UTF8Encoding(false)))
+                    w.Write(Jsn.S.Serialize(Jsn.D("formatVersion", 1, "game", "minecraft", "versionId", stamp,
+                        "name", "Server mods " + (mc != "" ? "(" + mc + ")" : ""), "summary", "Mods needed to join the server. Made with Aetheris.",
+                        "files", index, "dependencies", deps)));
+            }
+            using (var fs = new FileStream(zip, FileMode.Create))
+            using (var za = new ZipArchive(fs, ZipArchiveMode.Create))
+            {
+                foreach (var f in files) za.CreateEntryFromFile(f.FullName, "mods/" + f.Name, CompressionLevel.Fastest);
+                var e = za.CreateEntry("HOW TO INSTALL.txt");
+                using (var w = new StreamWriter(e.Open(), new UTF8Encoding(false)))
+                    w.Write("Mods for the server (Minecraft " + (mc != "" ? mc : "?") + ", " + loader + ").\r\n\r\n" +
+                        "EASIEST: import the .mrpack file into the Modrinth App, Prism Launcher or CurseForge app. It sets everything up for you.\r\n\r\n" +
+                        "MANUAL:\r\n1. Install " + loader + " for Minecraft " + mc + (loader == "fabric" ? " (https://fabricmc.net/use/installer/)" : "") + ".\r\n" +
+                        "2. Press Win+R, type %appdata%\\.minecraft and press Enter.\r\n3. Copy everything from this zip's mods folder into the mods folder there (create it if missing).\r\n" +
+                        "4. Start Minecraft with the " + loader + " profile and join the server.\r\n");
+            }
+            Server.Log("Client modpack created: " + files.Count + " mods (" + fromModrinth + " linked to Modrinth).");
+            return Jsn.D("ok", true, "mrpack", Fs.Rel(mrpack), "zip", Fs.Rel(zip), "count", files.Count, "linked", fromModrinth, "mc", mc, "loader", loader, "optional", skippedOptional);
+        }
+
+        static string Hex(byte[] b) { return BitConverter.ToString(b).Replace("-", "").ToLowerInvariant(); }
+
+        // What Modrinth says about each jar's client requirement ("required" / "optional" / "unsupported"), looked up by file hash.
+        static readonly Dictionary<string, string> sha1Cache = new Dictionary<string, string>();   // path|mtime|size -> sha1
+        static readonly Dictionary<string, string> sideCache = new Dictionary<string, string>();   // sha1 -> side ("" = not on Modrinth)
+        static readonly Dictionary<string, string> projCache = new Dictionary<string, string>();   // sha1 -> Modrinth project id
+        static readonly Dictionary<string, string[]> depCache = new Dictionary<string, string[]>(); // sha1 -> required dependency project ids
+
+        static string Sha1Of(FileInfo f)
+        {
+            var key = f.FullName + "|" + f.LastWriteTimeUtc.Ticks + "|" + f.Length;
+            lock (sha1Cache)
+            {
+                string h;
+                if (sha1Cache.TryGetValue(key, out h)) return h;
+                using (var sha = SHA1.Create()) using (var fs = f.OpenRead()) h = Hex(sha.ComputeHash(fs));
+                sha1Cache[key] = h;
+                return h;
+            }
+        }
+
+        // Which mod jars every player must have: mods Modrinth marks as required on the client (or that the jar says run on both sides
+        // and aren't on Modrinth), plus everything those mods depend on. why[name] = the mod that needs it.
+        public static HashSet<string> PlayerSet(List<FileInfo> jars, Dictionary<string, string> sides, out Dictionary<string, string> why)
+        {
+            why = new Dictionary<string, string>();
+            var meta = jars.ToDictionary(f => f.Name, f => JarMeta(f.FullName));
+            var byId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var byProj = new Dictionary<string, string>();
+            foreach (var f in jars)
+            {
+                var m = meta[f.Name];
+                if (m != null && m.ContainsKey("id") && m["id"] != null) byId[Convert.ToString(m["id"])] = f.Name;
+                string sha = null; try { sha = Sha1Of(f); } catch { }
+                string pj; lock (sideCache) if (sha != null && projCache.TryGetValue(sha, out pj)) byProj[pj] = f.Name;
+            }
+            var set = new HashSet<string>();
+            var queue = new Queue<string>();
+            foreach (var f in jars)
+            {
+                string side; var m = meta[f.Name];
+                bool need = sides.TryGetValue(f.Name, out side) ? side == "required"
+                    : !(m != null && m.ContainsKey("env") && (Convert.ToString(m["env"]) == "server"));
+                if (need && set.Add(f.Name)) queue.Enqueue(f.Name);
+            }
+            while (queue.Count > 0)
+            {
+                var name = queue.Dequeue();
+                var f = jars.First(x => x.Name == name);
+                var m = meta[name];
+                var add = new List<string>();
+                string sha = null; try { sha = Sha1Of(f); } catch { }
+                string[] dp; lock (sideCache) if (sha != null && depCache.TryGetValue(sha, out dp)) foreach (var d in dp) { string n; if (byProj.TryGetValue(d, out n)) add.Add(n); }
+                if (m != null && m.ContainsKey("deps"))
+                    foreach (var id in (m["deps"] as string[]) ?? new string[0])
+                    {
+                        if (id == "minecraft" || id == "java" || id == "fabricloader" || id == "fabric-loader") continue;
+                        string n;
+                        if (byId.TryGetValue(id, out n)) add.Add(n);
+                        else if (id.StartsWith("fabric-") && (byId.TryGetValue("fabric-api", out n) || byId.TryGetValue("fabric", out n))) add.Add(n);   // Fabric API module
+                    }
+                var who = m != null && m["name"] != null ? Convert.ToString(m["name"]) : name;
+                foreach (var n in add)
+                    if (set.Add(n)) { why[n] = who; queue.Enqueue(n); }
+            }
+            return set;
+        }
+
+        public static Dictionary<string, string> Sides(IEnumerable<FileInfo> jars)
+        {
+            var bySha = new Dictionary<string, string>();   // sha1 -> file name
+            foreach (var f in jars) try { bySha[Sha1Of(f)] = f.Name; } catch { }
+            var unknown = bySha.Keys.Where(h => { lock (sideCache) return !sideCache.ContainsKey(h); }).ToList();
+            if (unknown.Count > 0)
+            {
+                try
+                {
+                    var vf = Jsn.S.DeserializeObject(Net.PostJson("https://api.modrinth.com/v2/version_files",
+                        Jsn.S.Serialize(Jsn.D("hashes", unknown.ToArray(), "algorithm", "sha1")))) as Dictionary<string, object> ?? new Dictionary<string, object>();
+                    var proj = new Dictionary<string, string>();   // sha1 -> project id
+                    foreach (var kv in vf)
+                    {
+                        var v = kv.Value as Dictionary<string, object>;
+                        if (v == null || !v.ContainsKey("project_id")) continue;
+                        proj[kv.Key] = Convert.ToString(v["project_id"]);
+                        var deps = ((v.ContainsKey("dependencies") ? v["dependencies"] as object[] : null) ?? new object[0]).OfType<Dictionary<string, object>>()
+                            .Where(x => Convert.ToString(x.ContainsKey("dependency_type") ? x["dependency_type"] : "") == "required" && x.ContainsKey("project_id") && x["project_id"] != null)
+                            .Select(x => Convert.ToString(x["project_id"])).ToArray();
+                        lock (sideCache) { projCache[kv.Key] = proj[kv.Key]; depCache[kv.Key] = deps; }
+                    }
+                    var sideOf = new Dictionary<string, string>();
+                    if (proj.Count > 0)
+                    {
+                        var ids = Jsn.S.Serialize(proj.Values.Distinct().ToArray());
+                        var arr = Jsn.S.DeserializeObject(Net.Fetch("https://api.modrinth.com/v2/projects?ids=" + Uri.EscapeDataString(ids))) as object[];
+                        foreach (var o in arr ?? new object[0])
+                        {
+                            var d = o as Dictionary<string, object>;
+                            if (d != null && d.ContainsKey("id")) sideOf[Convert.ToString(d["id"])] = d.ContainsKey("client_side") ? Convert.ToString(d["client_side"]) : "";
+                        }
+                    }
+                    lock (sideCache)
+                        foreach (var h in unknown)
+                        {
+                            string pid, side;
+                            sideCache[h] = proj.TryGetValue(h, out pid) && sideOf.TryGetValue(pid, out side) ? side : "";
+                        }
+                }
+                catch { }   // offline: fall back to what the jar says
+            }
+            var res = new Dictionary<string, string>();
+            lock (sideCache)
+                foreach (var kv in bySha) { string side; if (sideCache.TryGetValue(kv.Key, out side) && side != "") res[kv.Value] = side; }
+            return res;
+        }
+
+        static string LatestFabricLoader()
+        {
+            try
+            {
+                var arr = Jsn.S.DeserializeObject(Net.Fetch("https://meta.fabricmc.net/v2/versions/loader")) as object[];
+                foreach (var o in arr ?? new object[0])
+                {
+                    var d = o as Dictionary<string, object>;
+                    if (d != null && d.ContainsKey("stable") && d["stable"] is bool && (bool)d["stable"]) return Convert.ToString(d["version"]);
+                }
+            }
+            catch { }
+            return "*";
         }
 
         static string ReadEntry(ZipArchiveEntry e)
@@ -1852,6 +2234,9 @@ namespace Aetheris
         {
             var dir = Dir(kind);
             var items = new List<object>();
+            var sides = kind == "mods" && Directory.Exists(dir) ? Sides(new DirectoryInfo(dir).GetFiles("*.jar*")) : new Dictionary<string, string>();
+            Dictionary<string, string> why = new Dictionary<string, string>();
+            var needSet = kind == "mods" && Directory.Exists(dir) ? PlayerSet(new DirectoryInfo(dir).GetFiles("*.jar").ToList(), sides, out why) : new HashSet<string>();
             if (Directory.Exists(dir))
             {
                 foreach (var f in new DirectoryInfo(dir).GetFiles().OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
@@ -1863,6 +2248,9 @@ namespace Aetheris
                     object nm = meta != null ? meta["name"] : null;
                     items.Add(Jsn.D("file", f.Name, "name", nm ?? Path.GetFileNameWithoutExtension(bn),
                         "version", meta != null ? meta["version"] : null, "desc", meta != null ? meta["desc"] : null,
+                        "env", meta != null && meta.ContainsKey("env") ? meta["env"] : null, "needs", meta != null && meta.ContainsKey("mc") ? meta["mc"] : null,
+                        "side", sides.ContainsKey(f.Name) ? sides[f.Name] : null,
+                        "players", kind == "mods" && !dis ? (object)needSet.Contains(f.Name) : null, "neededBy", why.ContainsKey(f.Name) ? why[f.Name] : null,
                         "enabled", !dis, "size", f.Length, "modified", Jsn.Ms(f.LastWriteTimeUtc), "dir", false));
                 }
                 if (kind == "datapacks")
@@ -1874,7 +2262,7 @@ namespace Aetheris
                             "enabled", !dis, "size", Fs.DirSize(d.FullName), "modified", Jsn.Ms(d.LastWriteTimeUtc), "dir", true));
                     }
             }
-            return Jsn.D("kind", kind, "items", items, "dir", Fs.Rel(dir), "loader", Loader(), "mc", McVersion());
+            return Jsn.D("kind", kind, "items", items, "dir", Fs.Rel(dir), "loader", Loader(), "mc", McVersion(), "loaderVersion", LoaderVersion());
         }
 
         public static void Op(string kind, string op, string file)
@@ -2130,6 +2518,16 @@ namespace Aetheris
             var u = Check(url);
             try { using (var wc = Client()) return wc.DownloadString(u); }
             catch (WebException ex) { throw new Fail("Request failed: " + ex.Message); }
+        }
+
+        public static string PostJson(string url, string body)
+        {
+            var u = Check(url);
+            using (var wc = Client())
+            {
+                wc.Headers[HttpRequestHeader.ContentType] = "application/json";
+                return wc.UploadString(u, "POST", body);
+            }
         }
 
         public static void DownloadTo(string url, string dest)
@@ -2392,7 +2790,7 @@ namespace Aetheris
 
         static object Ok() { return Jsn.D("ok", true); }
 
-        static object State()
+        static object State(Req r)
         {
             long ram; double cpu;
             Server.Stats(out ram, out cpu);
@@ -2414,7 +2812,8 @@ namespace Aetheris
                 "playit", c.PlayitPath != "" || c.StartPlayit ? (object)Server.PlayitRunning() : null,
                 "snake", Server.SnakeRules(), "sysram", App.SysRamMb(), "sysfree", App.SysFreeMb(),
                 "icon", App.Configured && File.Exists(Path.Combine(c.ServerDir, "server-icon.png")),
-                "loader", Addons.Loader(), "pending", Server.Pending(), "external", Server.External(), "aetheris", Program.Version, "tasks", c.Tasks.Count(t => t.Enabled));
+                "loader", Addons.Loader(), "mc", Addons.McVersion(), "sample", Server.Latest(),
+                "hist", r.Qs("hist") != "" ? (object)Server.History(0) : null, "pending", Server.Pending(), "external", Server.External(), "aetheris", Program.Version, "tasks", c.Tasks.Count(t => t.Enabled));
         }
 
         static object SaveConfig(Req r)
@@ -2470,7 +2869,7 @@ namespace Aetheris
             var c = App.Cfg;
             switch (r.Path)
             {
-                case "/api/state": return State();
+                case "/api/state": return State(r);
 
                 case "/api/console":
                     {
@@ -2677,6 +3076,9 @@ namespace Aetheris
                         else throw new Fail("Unknown file action.");
                         return Ok();
                     }
+
+                case "/api/clientpack":
+                    return Addons.ClientPack();
 
                 case "/api/version":
                     return Jsn.D("version", Program.Version, "exe", Application.ExecutablePath, "dir", c.ServerDir, "state", Server.State);
