@@ -206,7 +206,7 @@ label.f{display:block;font-weight:600;font-size:13px;margin:0 0 6px}
 .wcard .wi{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#16a34a33,#0ea5e933);color:#86efac;flex:none}
 .wlist{display:grid;gap:12px}
 .wlist .card{margin:0}
-.types{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.types{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
 .types button{background:var(--bg2);border:1px solid var(--line2);border-radius:12px;padding:14px;color:var(--text);text-align:left;cursor:pointer;font:inherit}
 .types button b{display:block;font-size:15px}
 .types button small{color:var(--muted);font-size:12px}
@@ -459,6 +459,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <button class="btn sm pw-main ok" data-power="main" id="topPower"><svg class="ic sm"><use href="#i-play"/></svg><span>Start</span></button>
     </header>
     <div class="restart" id="extBar" role="alert" hidden style="background:linear-gradient(90deg,#2b1020,#1d1225);border-color:#831843;color:#fbcfe8"><svg class="ic" style="color:#f472b6"><use href="#i-alert"/></svg><div class="grow"><b>A Minecraft server is already running outside Aetheris</b> <span id="extWhat"></span>. Aetheris can't control a server it didn't start, and a second server can't start while this one uses the port.</div><button class="btn sm ghost" id="extStop">Stop it safely</button><button class="btn sm danger" id="extKill">Force kill</button></div>
+    <div class="restart" id="updBar" role="status" hidden style="background:linear-gradient(90deg,#1a1336,#13172b);border-color:#4c1d95;color:#ddd6fe"><svg class="ic" style="color:#a78bfa"><use href="#i-down"/></svg><div class="grow"><b>Aetheris <span id="updVer"></span> is available.</b> <span id="updTxt"></span></div><button class="btn sm" id="updNow">Install now</button></div>
     <div class="restart" id="restartBar" role="status" hidden><svg class="ic"><use href="#i-restart"/></svg><div class="grow"><b>Restart needed.</b> <span id="restartWhat"></span> will apply after the server restarts.</div><button class="btn sm warn" data-power="restart"><svg class="ic sm"><use href="#i-restart"/></svg>Restart now</button></div>
 
     <div class="content" id="content">
@@ -598,8 +599,9 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
     </div>
     <div id="mBrowse" hidden>
       <form class="toolbar" id="mSearch">
+        <select name="src" id="mSrc" aria-label="Source" style="width:130px"><option value="modrinth">Modrinth</option><option value="curseforge">CurseForge</option></select>
         <input type="search" name="q" placeholder="Search Modrinth…" spellcheck="false">
-        <select name="loader" id="mLoader" aria-label="Loader"><option>fabric</option><option>quilt</option><option>forge</option><option>neoforge</option></select>
+        <select name="loader" id="mLoader" aria-label="Loader"><option>fabric</option><option>forge</option><option>neoforge</option><option>quilt</option></select>
         <input name="mc" id="mMc" placeholder="MC version" oninput="delete this.dataset.auto" style="width:120px" aria-label="Minecraft version" spellcheck="false">
         <button class="btn"><svg class="ic sm"><use href="#i-search"/></svg>Search</button>
       </form>
@@ -631,6 +633,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <button data-t="paper"><b>Paper</b><small>Fast, supports plugins</small></button>
       <button data-t="purpur"><b>Purpur</b><small>Paper with extra options</small></button>
       <button data-t="fabric"><b>Fabric</b><small>Lightweight mod loader</small></button>
+      <button data-t="forge"><b>Forge</b><small>Classic mod loader (big modpacks)</small></button>
+      <button data-t="neoforge"><b>NeoForge</b><small>Modern Forge (1.20.2+)</small></button>
     </div>
     <div class="row">
       <select id="swVersion" style="min-width:200px"><option>Pick a type above</option></select>
@@ -862,9 +866,11 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <li><b>.zip of jars:</b> every <code>.jar</code> inside is extracted.</li>
 <li><b>Server pack .zip</b> (contains a <code>mods/</code> or <code>plugins/</code> folder): the whole pack is extracted into your server folder, configs included.</li>
 <li><b>.mrpack</b> (Modrinth modpack): Aetheris downloads every server-side mod in it and applies its config overrides. It then tells you which loader and version the pack needs. Install that in <a data-href="#software" tabindex="0" role="link">Software</a>.</li>
+<li><b>CurseForge:</b> choose CurseForge as the source in the browser. CurseForge only allows downloads with an API key: paste your free key from <b>console.curseforge.com</b> in Settings. With a key, you can also upload CurseForge modpack zips (the ones with a <code>manifest.json</code>). The pack's “Server Pack” zip works without a key.</li>
 <li><b>Browse Modrinth:</b> search and click Install. Only versions that match your Minecraft version and loader are shown. Required dependencies (like Fabric API) are installed automatically.</li>
 </ul>
 <h4>Making mods work (Vanilla → Fabric)</h4>
+<p>Fabric, Forge and NeoForge mods are <b>not interchangeable</b>: a Forge mod only works on a Forge server, and so on. Choose the loader your mods (or modpack) are made for. You can install Forge or NeoForge from <a data-href="#software" tabindex="0" role="link">Software</a>; their official installer runs for you.</p>
 <p>A plain <code>server.jar</code> is Vanilla, and Vanilla ignores the <code>mods</code> folder. On the Mods page, click <b>Switch to Fabric</b>. Aetheris downloads Fabric for <b>your exact Minecraft version</b> (read from your server jar), and your world and settings stay. Restart, and the mods load.</p>
 <h4>Everyone needs the same mods</h4>
 <p>Mods that add things (blocks, items, mobs…) must also be installed by every player, in the same version, or they can't join. The labels show which is which: <span class="badge">players need it</span>, <span class="badge g">optional for players</span> (works without it on the player's side, e.g. Lithium), <span class="badge n">server only</span> (players don't need it, e.g. Chunky) and <span class="badge y">client only</span> (does nothing on a server, so remove it). <span class="badge r">needs MC …</span> means the mod was made for a different Minecraft version and will probably crash the server.</p>
@@ -930,7 +936,9 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>Server folder / jar</td><td>Where the server lives and which jar starts.</td></tr>
 <tr><td>Java executable</td><td><code>java</code> = the Java on your PATH. Browse to a specific <code>java.exe</code> to use another version.</td></tr>
 <tr><td>Maximum / Starting RAM</td><td>Java's <code>-Xmx</code> / <code>-Xms</code>. The server can never use more than the maximum. More isn't always better, because huge amounts cause longer garbage-collection pauses.</td></tr>
-<tr><td>Optimized JVM flags</td><td>Aikar's well-known G1GC flags, for smoother performance. Leave this on.</td></tr>
+<tr><td>Optimized JVM flags</td><td>Aikar's well-known G1GC flags. They often make big servers smoother. <b>Off by default.</b></td></tr>
+<tr><td>Automatic updates</td><td>Checks GitHub for a new Aetheris every 6 hours (using the release page, not the rate-limited API) and installs it while the server is stopped. If the server is running, it waits, or you can click Install now. The update saves and restarts the server for you.</td></tr>
+<tr><td>CurseForge API key</td><td>Optional. Needed to browse CurseForge and import CurseForge modpacks. Get a free key at console.curseforge.com.</td></tr>
 <tr><td>Restart after a crash</td><td>Starts the server again if it stops on its own (at most 3 times in 10 minutes, to avoid loops).</td></tr>
 <tr><td>Connection watchdog</td><td>Every minute, Aetheris checks that the server still answers connections, like the server list does. If it doesn't answer 3 times in a row, the server is restarted.</td></tr>
 <tr><td>Tray notifications</td><td>A Windows pop-up on crashes and automatic restarts.</td></tr>
@@ -985,6 +993,17 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 </ol>
 </div>
 
+<div class="gsec" id="g-defaults" data-cat="Reference" data-title="What Aetheris changes (defaults)">
+<h2><svg class="ic"><use href="#i-shield"/></svg>What Aetheris changes, and what it doesn't</h2>
+<p class="lead">Aetheris starts your server exactly as Minecraft intends. It only changes things you explicitly change.</p>
+<ul>
+<li>The only extra Java arguments are your RAM (<code>-Xms</code>/<code>-Xmx</code>) and two console-encoding flags, so text shows correctly in the console. These don't affect the game.</li>
+<li><b>Optimized JVM flags, crash auto-restart and the connection watchdog are off</b> until you turn them on in Settings.</li>
+<li>Saving options only writes the options you changed. Everything else in <code>server.properties</code> stays as it was.</li>
+<li>Nothing is installed, switched, deleted or downloaded unless you click a button for it. The only exception is Aetheris's own automatic updates, which you can turn off.</li>
+</ul>
+</div>
+
 <div class="gsec" id="g-sync" data-cat="Reference" data-title="When do changes apply? (sync)">
 <h2><svg class="ic"><use href="#i-refresh"/></svg>When do changes apply? Is everything synced?</h2>
 <p class="lead">Aetheris has no separate copy of your settings. It always reads and writes the real server files, so the panel and the server are always in sync.</p>
@@ -1011,7 +1030,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td><b>Paper</b></td><td>Most servers. Much faster than Vanilla, so it's the best choice for an old PC.</td><td>Plugins + datapacks</td></tr>
 <tr><td><b>Purpur</b></td><td>Paper plus many extra gameplay options.</td><td>Plugins + datapacks</td></tr>
 <tr><td><b>Fabric</b></td><td>Lightweight mods (and performance mods like Lithium and FerriteCore).</td><td>Fabric mods + datapacks</td></tr>
-<tr><td>Forge / NeoForge</td><td>Big content modpacks. Install them with their own installer, then pick the jar in Software.</td><td>Forge mods</td></tr></table>
+<tr><td><b>Forge</b></td><td>Big classic modpacks (most CurseForge packs). Software runs the official installer for you.</td><td>Forge mods + datapacks</td></tr>
+<tr><td><b>NeoForge</b></td><td>The modern Forge, for most newer modpacks (1.20.2+). Installed the same way.</td><td>NeoForge mods + datapacks</td></tr></table>
 <p>Players with a normal Minecraft client can join Vanilla, Paper and Purpur servers. Fabric and Forge servers need matching mods on the player's side unless every mod is server-only.</p>
 </div>
 
@@ -1047,6 +1067,16 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td><code>worldborder set 5000</code></td><td>Limit the world size.</td></tr>
 <tr><td><code>reload</code></td><td>Reload datapacks.</td></tr>
 <tr><td><code>stop</code></td><td>Save and stop the server (same as the Stop button).</td></tr></table>
+</div>
+
+<div class="gsec" id="g-updates" data-cat="Reference" data-title="Updating Aetheris">
+<h2><svg class="ic"><use href="#i-down"/></svg>Updating Aetheris</h2>
+<ul>
+<li>With <b>Automatic updates</b> on (Settings), Aetheris checks the latest GitHub release every 6 hours. It asks github.com which release is latest, which isn't rate-limited like the GitHub API, and adds a cache-busting value so it never gets a stale answer.</li>
+<li>When a newer version exists, it's downloaded, checked (it must be a real, newer <code>Aetheris.exe</code>), then swapped in. The new version safely stops the old one, takes over, and starts your server again if it was running. The panel reloads by itself.</li>
+<li>While the server is running, the update waits until the server is stopped, unless you click <b>Install now</b> in the purple bar.</li>
+<li>Manual update: download <code>Aetheris.exe</code> from the GitHub releases page and run it. It offers to replace the running copy.</li>
+</ul>
 </div>
 
 <div class="gsec" id="g-keys" data-cat="Reference" data-title="Keyboard shortcuts">
@@ -1110,7 +1140,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>“A Minecraft server is already running outside Aetheris”</td><td>Something else (a server started from cmd, or one left over after Aetheris was force-closed) is using the server port. Click <b>Stop it safely</b> (saves the world) or <b>Force kill</b>, then start your server normally.</td></tr>
 <tr><td>Stuck on “Stopping…”</td><td>Aetheris waits up to 90 seconds for the world to save. After 15 seconds, the button turns into <b>Force stop</b>, which ends Java and everything it started. After 90 seconds, this happens automatically.</td></tr>
 <tr><td>“An older copy of Aetheris is already running”</td><td>Click <b>Yes</b> to switch: the old copy's server is saved and stopped, the old copy closes, and the new one starts the server again.</td></tr>
-<tr><td>The panel says “Connection to Aetheris lost”</td><td>Aetheris was closed or crashed. Start <code>Aetheris.exe</code> again and the page reconnects by itself.</td></tr>
+<tr><td>The panel says “Connection to Aetheris lost”</td><td>Aetheris was closed or crashed. Start <code>Aetheris.exe</code> again and the page reconnects by itself. If Aetheris ever crashes, details are saved in <code>aetheris-crash.log</code> next to <code>Aetheris.exe</code>.</td></tr>
 <tr><td>Aetheris says the panel port is in use</td><td>Another program uses port 8165. Change <code>"Port"</code> in <code>aetheris.json</code>.</td></tr>
 <tr><td>Settings changed but nothing happened</td><td>Most things need a restart. Use the yellow <i>Restart now</i> bar.</td></tr></table>
 </div>
@@ -1141,7 +1171,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <div class="fld"><label class="f" for="c-JavaPath">Java executable</label><div class="row"><input id="c-JavaPath" data-cfg="JavaPath" spellcheck="false"><button type="button" class="btn ghost sm" data-browse="java" data-for="c-JavaPath">Browse…</button></div><small><code>java</code> uses the Java on your PATH. Point this to a specific <code>java.exe</code> to use another version.</small></div>
       <div class="fld"><label class="f">Maximum RAM for the server</label><div class="rng"><input type="range" id="c-MaxRam" data-cfg="MaxRam" min="512" step="256"><output id="o-MaxRam"></output></div><small id="ramHint"></small></div>
       <div class="fld"><label class="f">Starting RAM</label><div class="rng"><input type="range" id="c-MinRam" data-cfg="MinRam" min="256" step="256"><output id="o-MinRam"></output></div></div>
-      <div class="opt"><div class="opt-l"><b>Optimized JVM flags</b><small>Aikar's G1GC flags: smoother performance with less lag. Recommended.</small></div><span class="sw"><input type="checkbox" data-cfg="AikarFlags"><span></span></span></div>
+      <div class="opt"><div class="opt-l"><b>Optimized JVM flags</b><small>Aikar's G1GC flags: smoother performance on many servers. Off by default, so Java runs exactly as normal unless you turn this on.</small></div><span class="sw"><input type="checkbox" data-cfg="AikarFlags"><span></span></span></div>
       <div class="fld" style="margin-top:8px"><label class="f" for="c-JvmArgs">Extra Java arguments</label><input id="c-JvmArgs" data-cfg="JvmArgs" placeholder="optional" spellcheck="false" style="width:100%"></div>
     </div>
     <div>
@@ -1166,6 +1196,11 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <div class="card-h"><svg class="ic"><use href="#i-gauge"/></svg><h3>Panel</h3></div>
       <div class="opt"><div class="opt-l"><b>Open as an app window</b><small>Uses Edge app mode instead of a browser tab.</small></div><span class="sw"><input type="checkbox" data-cfg="AppWindow"><span></span></span></div>
       <div class="opt"><div class="opt-l"><b>Open the panel on launch</b></div><span class="sw"><input type="checkbox" data-cfg="OpenOnLaunch"><span></span></span></div>
+      <div class="opt"><div class="opt-l"><b>Automatic updates</b><small id="updStatus">Checks GitHub for a new Aetheris every 6 hours and installs it while the server is stopped.</small></div><div class="row"><button type="button" class="btn ghost sm" id="updCheck">Check now</button><span class="sw"><input type="checkbox" data-cfg="AutoUpdate"><span></span></span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><svg class="ic"><use href="#i-puzzle"/></svg><h3>CurseForge</h3></div>
+      <div class="fld"><label class="f" for="c-CurseForgeKey">CurseForge API key (optional)</label><input id="c-CurseForgeKey" data-cfg="CurseForgeKey" type="password" autocomplete="off" spellcheck="false" style="width:100%" placeholder="Paste your key to browse CurseForge and import CurseForge modpacks"><small>CurseForge only allows downloads with a key. Get a free one at <b>console.curseforge.com</b> → API keys. It's stored only on this PC, in aetheris.json.</small></div>
       <div class="opt"><div class="opt-l"><b>Panel port</b><small>Only reachable from this PC. Takes effect after you restart Aetheris.</small></div><input type="number" min="1024" max="65535" data-cfg="Port"></div>
     </div>
     </div>
@@ -1190,8 +1225,9 @@ const fmtUp=s=>{if(!s)return'—';const d=Math.floor(s/86400),h=Math.floor(s%864
 const fmtD=ms=>ms?new Date(ms).toLocaleString([], {dateStyle:'medium',timeStyle:'short'}):'—';
 const S={state:{state:'offline'},seq:-1,dirty:{},props:null,ptab:'online',fpath:'',hist:[],hi:0,cfg:null,fails:0};
 
-async function api(path,body,method){
+async function api(path,body,method,timeoutMs){
   const o={method:method||(body!==undefined?'POST':'GET'),headers:{'X-Aetheris':'1'}};
+  if(timeoutMs){const ac=new AbortController();o.signal=ac.signal;setTimeout(()=>ac.abort(),timeoutMs)}
   if(body!==undefined){ if(body instanceof Blob||typeof body==='string'){o.body=body}else{o.body=JSON.stringify(body);o.headers['Content-Type']='application/json'} }
   const r=await fetch('/api/'+path,o);
   const ct=r.headers.get('content-type')||'';
@@ -1266,11 +1302,18 @@ async function poll(){
   clearTimeout(S.pt);
   if(document.hidden&&S.polled)return;
   S.polled=true;
-  try{const s=await api('state'+(S.needHist?'?hist=1':''));S.needHist=false;setLost(false);S.fails=0;renderState(s)}
-  catch(e){if(++S.fails>1)setLost(true)}
+  let s=null;
+  try{s=await api('state'+(S.needHist?'?hist=1':''),undefined,undefined,12000)}
+  catch(e){if(++S.fails>=3)setLost(true)}   // one slow or failed check isn't a lost connection
+  if(s){
+    S.needHist=false;S.fails=0;setLost(false);
+    if(S.ver&&s.aetheris&&s.aetheris!==S.ver){location.reload();return}   // Aetheris was updated: load the new panel
+    S.ver=s.aetheris||S.ver;
+    try{renderState(s)}catch(er){console.error(er)}
+  }
   // reconnect with backoff (1s, 2s, 4s … max 10s) while the connection is down
-  const delay=S.fails>1?Math.min(10000,1000*2**(S.fails-2)):S.state.state!=='offline'?1000:2500;
-  if(S.fails>1)$('#lostTxt').textContent=`Reconnecting in ${Math.round(delay/1000)}s (attempt ${S.fails-1})…`;
+  const delay=S.fails>=3?Math.min(10000,1000*2**(S.fails-3)):S.fails?1000:S.state.state!=='offline'?1000:2500;
+  if(S.fails>=3)$('#lostTxt').textContent=`Reconnecting in ${Math.round(delay/1000)}s (attempt ${S.fails-2})…`;
   S.pt=setTimeout(poll,delay);
 }
 function setLost(on){
@@ -1299,6 +1342,8 @@ function renderState(s){
     b.querySelector('span').textContent=off?'Start':S.forceStop?'Force stop':stopping?'Stopping…':'Stop';
     b.title=S.forceStop?'Stopping is taking long. Force stop ends the Java process (and anything it started).':'';
   });
+  const u=s.update||{};$('#updBar').hidden=!u.available||u.busy&&false;
+  if(u.available){$('#updVer').textContent=u.latest;$('#updTxt').textContent=u.busy?'Downloading and installing…':u.error?('Last attempt failed: '+u.error):s.state!=='offline'?(u.auto?'It installs automatically the next time the server is stopped.':'Click Install now. Your server is saved and restarted.'):'Installing shortly…';$('#updNow').disabled=!!u.busy}
   const ex=s.external;$('#extBar').hidden=!ex;
   if(ex)$('#extWhat').textContent=`(${ex.name}, PID ${ex.pid}, port ${ex.port})`;
   $$('[data-power=restart],[data-power=kill]').forEach(b=>b.disabled=s.state==='offline');
@@ -1397,6 +1442,10 @@ async function acceptEula(){
   try{await api('eula',{});toast('EULA accepted.');await poll();return true}catch(e){toast(e.message,'err');return false}
 }
 $('#eulaBtn').onclick=acceptEula;
+$('#updNow').onclick=async e=>{
+  if(S.state.state!=='offline'&&!await confirmBox('Install the update now?','Aetheris saves and stops the server, updates itself, then starts the server again. Players are disconnected for a moment.',false,'Update now'))return;
+  busy(e.currentTarget,async()=>{await api('update',{action:'install'});toast('Updating Aetheris… the page reloads by itself.','info')});
+};
 async function extAct(kill,btn){
   const ex=S.state.external;if(!ex)return;
   if(!await confirmBox(kill?'Force kill the outside server?':'Stop the outside server?',kill
@@ -1854,7 +1903,8 @@ async function uploadAddons(files){
       const kind=/\.mrpack$/i.test(f.name)?'mods':S.mkind;
       const r=await api(`addon-upload?kind=${kind}&name=${encodeURIComponent(f.name)}`,f,'PUT');
       toast(r.note||`Added ${r.added.length} file${r.added.length===1?'':'s'}: ${r.added.slice(0,3).join(', ')}${r.added.length>3?'…':''}`);
-      if(r.deps){const loader=Object.keys(r.deps).find(k=>k!=='minecraft');if(loader)toast(`This pack needs Minecraft ${r.deps.minecraft} with ${loader.replace('-loader','')} ${r.deps[loader]}. Install it in Software.`,'info',{label:'Software',fn:()=>location.hash='#software'})}
+      if(r.deps&&r.deps.loader!==undefined){if(r.deps.loader)toast(`This pack needs Minecraft ${r.deps.minecraft} with ${r.deps.loader}. Install that loader in Software.`,'info',{label:'Software',fn:()=>location.hash='#software'})}
+      else if(r.deps){const loader=Object.keys(r.deps).find(k=>k!=='minecraft');if(loader)toast(`This pack needs Minecraft ${r.deps.minecraft} with ${loader.replace('-loader','')} ${r.deps[loader]}. Install it in Software.`,'info',{label:'Software',fn:()=>location.hash='#software'})}
     }catch(er){toast(f.name+': '+er.message,'err')}
   }
   LOAD.mods();
@@ -1869,8 +1919,41 @@ addEventListener('dragover',e=>{if(S.page==='mods')e.preventDefault()});
 addEventListener('drop',e=>{if(S.page!=='mods')return;e.preventDefault();dragN=0;$('#dropOv')?.remove();uploadAddons(e.dataTransfer.files)});
 
 function mLoaders(){return S.mkind==='plugins'?['paper','spigot','bukkit','purpur','folia']:S.mkind==='datapacks'?['datapack']:[$('#mLoader').value]}
+const CF_LOADER={forge:1,fabric:4,quilt:5,neoforge:6};
+const cfj=async path=>{const r=await api('cf?path='+encodeURIComponent(path));return typeof r==='string'?JSON.parse(r):r};
+async function cfSearch(q,mc,tok){
+  const cls=S.mkind==='plugins'?5:S.mkind==='datapacks'?6945:6;
+  let path=`/v1/mods/search?gameId=432&classId=${cls}&pageSize=20&sortOrder=desc&sortField=${q?1:2}&searchFilter=${encodeURIComponent(q)}`;
+  if(mc)path+=`&gameVersion=${encodeURIComponent(mc)}`;
+  if(S.mkind==='mods')path+=`&modLoaderType=${CF_LOADER[$('#mLoader').value]||4}`;
+  const r=await cfj(path);
+  if(tok!==S.mTok)return;
+  $('#mResults').innerHTML=r.data.length?r.data.map(h=>`<div class="mcard">${h.logo&&h.logo.thumbnailUrl?`<img src="${esc(h.logo.thumbnailUrl)}" alt="" loading="lazy">`:`<span class="mi">${ic('puzzle','lg')}</span>`}<div class="grow" style="min-width:0"><div class="t">${esc(h.name)}</div><div class="s">by ${esc((h.authors&&h.authors[0]||{}).name||'?')} · ${Intl.NumberFormat('en',{notation:'compact'}).format(h.downloadCount||0)} downloads <span class="badge n">CurseForge</span></div><div class="d">${esc(h.summary)}</div><button class="btn sm" data-cf="${h.id}" data-mn="${esc(h.name)}">${ic('down')}Install</button></div></div>`).join('')
+    :`<div class="empty" style="grid-column:1/-1">${ic('search','')}<div>Nothing found on CurseForge${mc?' for Minecraft '+esc(mc):''}.</div></div>`;
+}
+async function cfInstall(id,kind,mc,seen,depth){
+  if(seen.has(id)||depth>4)return[];seen.add(id);
+  let path=`/v1/mods/${id}/files?pageSize=20`;
+  if(mc)path+=`&gameVersion=${encodeURIComponent(mc)}`;
+  if(kind==='mods')path+=`&modLoaderType=${CF_LOADER[$('#mLoader').value]||4}`;
+  const r=await cfj(path);
+  const fs=(r.data||[]).sort((a,b)=>new Date(b.fileDate)-new Date(a.fileDate));
+  const f=fs.find(x=>x.releaseType===1)||fs[0];
+  if(!f)throw new Error(`no file for ${mc?'Minecraft '+mc:'this version'}`);
+  const url=f.downloadUrl||`https://edge.forgecdn.net/files/${Math.floor(f.id/1000)}/${f.id%1000}/${encodeURIComponent(f.fileName)}`;
+  await api('addon-install',{kind,url,name:f.fileName});
+  const done=[f.fileName];
+  for(const d of f.dependencies||[])if(d.relationType===3){try{done.push(...await cfInstall(d.modId,kind,mc,seen,depth+1))}catch(er){toast('Dependency skipped: '+er.message,'err')}}
+  return done;
+}
 async function mSearch(){
   const q=$('#mSearch').q.value.trim(),mc=$('#mMc').value.trim();
+  const tok=S.mTok=(S.mTok||0)+1;   // ignore results of older searches that finish late
+  if($('#mSrc').value==='curseforge'){
+    $('#mResults').innerHTML=`<div class="empty" style="grid-column:1/-1"><div>Searching CurseForge…</div></div>`;
+    try{await cfSearch(q,mc,tok)}catch(e){if(tok!==S.mTok)return;$('#mResults').innerHTML=`<div class="empty" style="grid-column:1/-1">${ic('alert','')}<div>${esc(e.message)}</div>${/key/i.test(e.message)?'<div style="margin-top:10px"><a class="btn sm" data-href="#settings" tabindex="0" role="link">Open Settings</a></div>':''}</div>`}
+    return;
+  }
   const f=S.mkind==='mods'?[['project_type:mod'],['categories:'+$('#mLoader').value],['server_side:required','server_side:optional']]
     :S.mkind==='plugins'?[['categories:paper','categories:spigot','categories:bukkit','categories:purpur']]:[['categories:datapack']];
   if(mc)f.push(['versions:'+mc]);
@@ -1878,9 +1961,10 @@ async function mSearch(){
   $('#mResults').innerHTML=`<div class="empty" style="grid-column:1/-1"><div>Searching Modrinth…</div></div>`;
   try{
     const r=await fetchJ(url);
+    if(tok!==S.mTok)return;
     $('#mResults').innerHTML=r.hits.length?r.hits.map(h=>`<div class="mcard">${h.icon_url?`<img src="${esc(h.icon_url)}" alt="" loading="lazy">`:`<span class="mi">${ic('puzzle','lg')}</span>`}<div class="grow" style="min-width:0"><div class="t">${esc(h.title)}</div><div class="s">by ${esc(h.author)} · ${Intl.NumberFormat('en',{notation:'compact'}).format(h.downloads)} downloads ${S.mkind==='mods'?(h.client_side==='unsupported'?'<span class="badge n">server only</span>':h.client_side==='required'?'<span class="badge">players need it</span>':'<span class="badge g">optional for players</span>'):''}</div><div class="d">${esc(h.description)}</div><button class="btn sm" data-mi="${esc(h.project_id)}" data-mn="${esc(h.title)}">${ic('down')}Install</button></div></div>`).join('')
       :`<div class="empty" style="grid-column:1/-1">${ic('search','')}<div>Nothing found${mc?' for Minecraft '+esc(mc):''}. Try another search or version.</div></div>`;
-  }catch(e){$('#mResults').innerHTML='';toast('Modrinth search failed: '+e.message,'err')}
+  }catch(e){if(tok!==S.mTok)return;$('#mResults').innerHTML='';toast('Modrinth search failed: '+e.message,'err')}
 }
 $('#mSearch').onsubmit=e=>{e.preventDefault();mSearch()};
 async function mrInstall(id,kind,loaders,mc,seen,depth){
@@ -1897,6 +1981,15 @@ async function mrInstall(id,kind,loaders,mc,seen,depth){
     if(d.dependency_type==='required'&&d.project_id){try{done.push(...await mrInstall(d.project_id,kind,loaders,mc,seen,depth+1))}catch(er){toast('Dependency skipped: '+er.message,'err')}}
   return done;
 }
+$('#mSrc').onchange=()=>{$('#mResults').innerHTML='';mSearch()};
+$('#mResults').addEventListener('click',e=>{
+  const b=e.target.closest('[data-cf]');if(!b)return;
+  busy(b,async()=>{
+    const files=await cfInstall(+b.dataset.cf,S.mkind,$('#mMc').value.trim(),new Set(),0);
+    b.innerHTML=ic('check')+'Installed';b.classList.add('ok');
+    toast(`Installed ${b.dataset.mn}${files.length>1?` + ${files.length-1} dependenc${files.length===2?'y':'ies'}`:''}. Restart to load it.`,'ok',S.state.state!=='offline'?{label:'Restart',fn:()=>power('restart')}:null);
+  }).then(()=>{if(b.classList.contains('ok'))b.disabled=true});
+});
 $('#mResults').onclick=e=>{
   const b=e.target.closest('[data-mi]');if(!b)return;
   busy(b,async()=>{
@@ -1939,7 +2032,8 @@ $('#bList').onclick=async e=>{
 LOAD.software=async()=>{
   try{
     const d=await api('jars');
-    $('#jarList').innerHTML=d.jars.length?'<div class="list">'+d.jars.map(j=>`<div class="li"><span class="av">${ic('box')}</span><div class="grow"><div class="nm">${esc(j.name)} ${j.name===d.current?'<span class="badge g">in use</span>':''}</div><div class="meta">${fmtB(j.size)} · ${fmtD(j.modified)}</div></div><div class="acts">${j.name===d.current?'':`<button class="btn ghost sm" data-jar="${esc(j.name)}">Use this</button><button class="icon-btn danger" data-deljar="${esc(j.name)}" title="Delete" aria-label="Delete ${esc(j.name)}">${ic('trash','')}</button>`}</div></div>`).join('')+'</div>'
+    const argsRow=d.argsFile?`<div class="li"><span class="av">${ic('box')}</span><div class="grow"><div class="nm">${/neoforge/i.test(d.current)?'NeoForge':'Forge'} launcher <span class="badge g">in use</span></div><div class="meta">${esc(d.current)}</div></div></div>`:'';
+    $('#jarList').innerHTML=(d.jars.length||argsRow)?'<div class="list">'+argsRow+d.jars.map(j=>`<div class="li"><span class="av">${ic('box')}</span><div class="grow"><div class="nm">${esc(j.name)} ${j.name===d.current?'<span class="badge g">in use</span>':''}</div><div class="meta">${fmtB(j.size)} · ${fmtD(j.modified)}</div></div><div class="acts">${j.name===d.current?'':`<button class="btn ghost sm" data-jar="${esc(j.name)}">Use this</button><button class="icon-btn danger" data-deljar="${esc(j.name)}" title="Delete" aria-label="Delete ${esc(j.name)}">${ic('trash','')}</button>`}</div></div>`).join('')+'</div>'
       :`<div class="empty">${ic('box','')}<div>No server jar in the server folder yet. Install one below.</div></div>`;
   }catch(e){toast(e.message,'err')}
 };
@@ -1965,6 +2059,18 @@ const SW={
       const b=await fetchJ(`https://api.papermc.io/v2/projects/paper/versions/${v}/builds`);const last=b.builds[b.builds.length-1];return `https://api.papermc.io/v2/projects/paper/versions/${v}/builds/${last.build}/downloads/${last.downloads.application.name}`}},
   purpur:{async list(){const p=await fetchJ('https://api.purpurmc.org/v2/purpur');return p.versions.slice().sort(vcmp).map(v=>[v,v])},
     async url(v){return `https://api.purpurmc.org/v2/purpur/${v}/latest/download`}},
+  forge:{async list(){
+      const p=await fetchJ('https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json');const out=new Map();
+      for(const [k,v] of Object.entries(p.promos||{})){const m=k.match(/^(.+)-(latest|recommended)$/);if(!m)continue;const cur=out.get(m[1]);if(!cur||m[2]==='recommended')out.set(m[1],v)}
+      return [...out.entries()].sort((a,b)=>vcmp(a[0],b[0])).map(([mc,v])=>[mc+'|'+v,`${mc} (Forge ${v})`])},
+    loader:true},
+  neoforge:{async list(){
+      const p=await fetchJ('https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge');
+      // NeoForge 21.4.140 = MC 1.21.4; from 26.x the MC version is the prefix: 26.1.2.116 = MC 26.1.2 (build 116)
+      const mcOf=v=>{const p=v.split(/[.\-]/);const a=+p[0],b=+p[1];if(isNaN(a)||isNaN(b))return '';if(a<26)return `1.${a}${b?'.'+b:''}`;const c=+p[2];return `${a}.${b}${c?'.'+c:''}`};
+      const best=new Map();for(const v of (p.versions||[])){const mc=mcOf(v);if(!mc)continue;const cur=best.get(mc);const beta=/beta|alpha/i.test(v);if(!cur||(cur.beta&&!beta)||(cur.beta===beta&&vcmp(v,cur.v)<0))best.set(mc,{v,beta})}
+      return [...best.entries()].sort((a,b)=>vcmp(a[0],b[0])).map(([mc,x])=>[mc+'|'+x.v,`${mc} (NeoForge ${x.v})`])},
+    loader:true},
   fabric:{async list(){const g=await fetchJ('https://meta.fabricmc.net/v2/versions/game');return g.filter(v=>$('#swSnap').checked||v.stable).map(v=>[v.version,v.version])},
     async url(v){const [l,i]=await Promise.all([fetchJ('https://meta.fabricmc.net/v2/versions/loader'),fetchJ('https://meta.fabricmc.net/v2/versions/installer')]);const lo=(l.find(x=>x.stable)||l[0]).version,inst=(i.find(x=>x.stable)||i[0]).version;return `https://meta.fabricmc.net/v2/versions/loader/${v}/${lo}/${inst}/server/jar`}},
 };
@@ -1979,6 +2085,17 @@ $('#swTypes').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.swTy
 $('#swSnap').onchange=loadVersions;
 $('#swInstall').onclick=e=>{
   const v=$('#swVersion').value,t=S.swType;
+  if(SW[t].loader){
+    const [mc,ver]=v.split('|');
+    busy(e.currentTarget,async()=>{
+      if(S.state.state!=='offline'){toast('Stop the server before installing '+(t==='forge'?'Forge':'NeoForge')+'.','err');return}
+      if(!await confirmBox(`Install ${t==='forge'?'Forge':'NeoForge'} ${esc(ver)}?`,`This runs the official installer for Minecraft <b>${esc(mc)}</b> in your server folder. It downloads libraries, which takes 1–5 minutes. Your world and settings stay. Watch the progress in the Console.`,false,'Install'))return;
+      toast('Installing… progress is shown in the Console.','info');
+      const r=await api('install-loader',{loader:t,version:ver,mc});
+      toast(`${t==='forge'?'Forge':'NeoForge'} ${ver} installed. Start the server to use it.`);LOAD.software();poll();
+    });
+    return;
+  }
   busy(e.currentTarget,async()=>{
     const name=`${t}-${v}.jar`.replace(/[^A-Za-z0-9._\-+]/g,'_');
     toast(`Downloading ${t} ${v}…`,'info');
@@ -2049,11 +2166,12 @@ LOAD.settings=async()=>{
     const [d,j]=await Promise.all([api('config'),api('jars').catch(()=>({jars:[]}))]);S.cfg=d.config;
     const sys=d.sysram;const mx=$('#c-MaxRam');mx.max=Math.max(1024,Math.floor((sys-512)/256)*256);
     $('#ramHint').textContent=`This PC has ${ramLabel(sys)} RAM. Leave at least 1–2 GB free for Windows. 2–4 GB is plenty for a few friends.`;
-    const js=$('#c-Jar');js.innerHTML=(j.jars.length?j.jars:[{name:d.config.Jar}]).filter(x=>x.name).map(x=>`<option ${x.name===d.config.Jar?'selected':''}>${esc(x.name)}</option>`).join('')||'<option value="">(no jars found)</option>';
+    const jl=j.jars.slice();if(d.config.Jar&&!jl.some(x=>x.name===d.config.Jar))jl.unshift({name:d.config.Jar});
+    const js=$('#c-Jar');js.innerHTML=jl.filter(x=>x.name).map(x=>`<option ${x.name===d.config.Jar?'selected':''}>${esc(x.name)}</option>`).join('')||'<option value="">(no jars found)</option>';
     $$('[data-cfg]').forEach(el=>{const v=d.config[el.dataset.cfg];if(el.type==='checkbox')el.checked=!!v;else el.value=v??''});
     $('#c-autostart').checked=d.autostart;
     syncRam();
-    S.cfgSnap=cfgSnap();cfgDirty();
+    S.cfgSnap=cfgSnap();cfgDirty();updStatus(S.state.update);
   }catch(e){toast(e.message,'err')}
 };
 $('#c-MaxRam').oninput=$('#c-MinRam').oninput=syncRam;
@@ -2061,6 +2179,8 @@ $('#clearRestart').onclick=()=>{$('[data-cfg=DailyRestart]').value='';cfgDirty()
 function cfgSnap(){return JSON.stringify($$('[data-cfg]').map(el=>el.type==='checkbox'?el.checked:String(el.value)).concat($('#c-autostart').checked))}
 function cfgDirty(){$('#cfgBar').hidden=!S.cfgSnap||cfgSnap()===S.cfgSnap}
 $('#cfgForm').addEventListener('input',cfgDirty);$('#cfgForm').addEventListener('change',cfgDirty);
+$('#updCheck').onclick=e=>busy(e.currentTarget,async()=>{const u=await api('update',{action:'check'});updStatus(u);toast(u.available?`Aetheris ${u.latest} is available.`:u.error?'Check failed: '+u.error:`You're on the latest version (${u.current}).`,u.error?'err':'ok')});
+function updStatus(u){if(!u)return;$('#updStatus').textContent=`Version ${u.current}. `+(u.available?`${u.latest} is available${u.auto?' and installs while the server is stopped':''}.`:u.lastCheck?`Up to date (checked ${fmtD(new Date(u.lastCheck/10000-62135596800000).getTime())}).`:'Checks GitHub every 6 hours.')}
 $('#cfgDiscard').onclick=()=>{S.cfgSnap=null;LOAD.settings()};
 $('#cfgForm').onsubmit=e=>{
   e.preventDefault();const btn=$('button[type=submit]',e.target);

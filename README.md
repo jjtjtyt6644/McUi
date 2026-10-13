@@ -14,11 +14,18 @@ A lightweight Minecraft server panel for Windows. It gives you Aternos-style con
 - **Guide:** built-in, searchable documentation covering every feature, playit.gg setup, what applies when, Java versions, commands, performance tips and troubleshooting
 - **Restart reminder:** a yellow bar on every page shows which changes still need a restart, until you restart
 - **Backups:** one-click zip backups that are safe while running, plus restore, download and automatic backups
-- **Software:** one-click install of Vanilla, Paper, Purpur or Fabric (any version), switch jars, check Java
+- **Software:** one-click install of Vanilla, Paper, Purpur, Fabric, Forge or NeoForge (any version), switch jars, check Java
+- **CurseForge:** browse CurseForge mods and import CurseForge modpacks (free API key from console.curseforge.com)
 - **Files:** browse, edit, upload, download, rename and delete files in the server folder
 - **Settings:** RAM, Java path, optimized JVM flags, crash auto-restart, start with Windows, daily restart, playit.gg
 
 ## Install
+
+One-line install (PowerShell, downloads the latest release):
+
+```
+irm https://github.com/jjtjtyt6644/McUi/releases/latest/download/Aetheris.exe -OutFile Aetheris.exe
+```
 
 1. Copy `dist\Aetheris.exe` and `dist\Aetheris.exe.config` anywhere. Your server folder is a good place.
 2. Double-click `Aetheris.exe`. The panel opens and a crystal icon appears in the system tray.
@@ -28,7 +35,7 @@ Nothing to install: it uses the .NET Framework that's already built into Windows
 
 ## Updating
 
-Just run the new `Aetheris.exe`. If an older copy is still running, Aetheris offers to switch over. It saves and stops the old copy's server, closes the old copy, then starts the server again in the new version. To do this without a prompt (for example from a script), run `Aetheris.exe --replace`.
+Aetheris updates itself: it checks the latest GitHub release every 6 hours and installs new versions while the server is stopped (Settings → Panel → Automatic updates). To update by hand, just run the new `Aetheris.exe`. If an older copy is still running, Aetheris offers to switch over. It saves and stops the old copy's server, closes the old copy, then starts the server again in the new version. To do this without a prompt (for example from a script), run `Aetheris.exe --replace`.
 
 ## Low resource use
 

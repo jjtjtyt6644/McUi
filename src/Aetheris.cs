@@ -23,14 +23,26 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.5.0.0")]
-[assembly: AssemblyFileVersion("1.5.0.0")]
+[assembly: AssemblyVersion("1.6.0.0")]
+[assembly: AssemblyFileVersion("1.6.0.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.5.0";
+        public const string Version = "1.6.0";
+
+        // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
+        static void WriteRuntimeConfig()
+        {
+            try
+            {
+                var path = Application.ExecutablePath + ".config";
+                const string cfg = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<configuration>\r\n  <startup><supportedRuntime version=\"v4.0\" sku=\".NETFramework,Version=v4.5\"/></startup>\r\n  <runtime><gcConcurrent enabled=\"false\"/><gcServer enabled=\"false\"/><legacyUnhandledExceptionPolicy enabled=\"1\"/></runtime>\r\n</configuration>\r\n";
+                if (!File.Exists(path) || !File.ReadAllText(path).Contains("legacyUnhandledExceptionPolicy")) File.WriteAllText(path, cfg);
+            }
+            catch { }
+        }
 
         static string Fnv(string s)
         {
@@ -46,6 +58,14 @@ namespace Aetheris
             Instances.AutoReplace = args.Any(a => a == "--replace");   // replace an older running copy without asking
             bool created;
             ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072; // TLS 1.2
+            // never let an unexpected error close Aetheris: log it and keep running
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => App.CrashLog("unhandled", e.ExceptionObject as Exception ?? new Exception(Convert.ToString(e.ExceptionObject)));
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            Application.ThreadException += (s, e) => App.CrashLog("ui", e.Exception);
+            // enough threads that a busy server start on a slow PC can't starve the panel's web server
+            int wt, io; ThreadPool.GetMinThreads(out wt, out io);
+            ThreadPool.SetMinThreads(Math.Max(wt, 24), Math.Max(io, 24));
+            WriteRuntimeConfig();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             // one instance per install folder (so separate servers can each have their own panel)
@@ -192,7 +212,7 @@ namespace Aetheris
             {
                 var lbl = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 10f), Text = running ? "Saving and stopping the Minecraft server in the old Aetheris…" : "Closing the old Aetheris…" };
                 f.Controls.Add(lbl);
-                f.Shown += (s, e) => ThreadPool.QueueUserWorkItem(_ =>
+                f.Shown += (s, e) => App.Bg(_ =>
                 {
                     try { error = DoTakeover(o, running); } catch (Exception ex) { error = ex.Message; }
                     try { f.BeginInvoke(new Action(f.Close)); } catch { }
@@ -292,10 +312,12 @@ namespace Aetheris
                 bool ok = GenerateConsoleCtrlEvent(0, 0);
                 Thread.Sleep(300);
                 FreeConsole();
-                ThreadPool.QueueUserWorkItem(_ => { Thread.Sleep(3000); lock (ConsoleLock) SetConsoleCtrlHandler(IntPtr.Zero, false); });
+                App.Bg(_ => { Thread.Sleep(3000); lock (ConsoleLock) SetConsoleCtrlHandler(IntPtr.Zero, false); });
                 return ok;
             }
         }
+
+        public static void AllowCtrlCInChildren() { lock (ConsoleLock) SetConsoleCtrlHandler(IntPtr.Zero, false); }
 
         public static void KillTree(int pid)
         {
@@ -352,14 +374,18 @@ namespace Aetheris
         public bool Watchdog { get; set; }
         public bool Notify { get; set; }
         public List<TaskDef> Tasks { get; set; }
+        public int Cv { get; set; }                 // config format version
+        public string CurseForgeKey { get; set; }
+        public bool AutoUpdate { get; set; }
+        public long LastUpdateCheck { get; set; }
         [ScriptIgnore] public bool AutoStartOnce;
 
         public Config()
         {
             ServerDir = ""; Jar = ""; JavaPath = "java"; MinRam = 1024; MaxRam = 2048; JvmArgs = "";
-            AikarFlags = true; AutoRestart = true; PlayitPath = ""; Address = ""; Port = 8165;
+            AikarFlags = false; AutoRestart = false; PlayitPath = ""; Address = ""; Port = 8165;
             AppWindow = true; OpenOnLaunch = true; BackupKeep = 10; DailyRestart = "";
-            Watchdog = true; Notify = true; Tasks = new List<TaskDef>();
+            Watchdog = false; Notify = true; Tasks = new List<TaskDef>(); CurseForgeKey = ""; AutoUpdate = true;
         }
 
         static string FilePath { get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "aetheris.json"); } }
@@ -368,9 +394,16 @@ namespace Aetheris
         {
             Config c = null;
             try { if (File.Exists(FilePath)) c = Jsn.S.Deserialize<Config>(File.ReadAllText(FilePath)); } catch { }
+            if (c != null && c.Cv < 2)
+            {
+                // older versions turned these on without asking; now they're opt-in
+                c.AikarFlags = false; c.Watchdog = false; c.AutoRestart = false; c.AutoUpdate = true;
+                c.Cv = 2;
+                try { c.Normalize(); c.Save(); } catch { }
+            }
             if (c == null)
             {
-                c = new Config();
+                c = new Config { Cv = 2 };
                 var here = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
                 var jar = FindJar(here);
                 if (jar != "") { c.ServerDir = here; c.Jar = jar; }
@@ -385,6 +418,7 @@ namespace Aetheris
         {
             ServerDir = (ServerDir ?? "").Trim().TrimEnd('\\'); Jar = (Jar ?? "").Trim();
             JavaPath = string.IsNullOrWhiteSpace(JavaPath) ? "java" : JavaPath.Trim().Trim('"');
+            CurseForgeKey = (CurseForgeKey ?? "").Trim();
             JvmArgs = (JvmArgs ?? "").Trim(); PlayitPath = (PlayitPath ?? "").Trim().Trim('"');
             Address = (Address ?? "").Trim(); DailyRestart = (DailyRestart ?? "").Trim();
             if (MinRam < 256) MinRam = 256;
@@ -397,6 +431,12 @@ namespace Aetheris
             if (Tasks == null) Tasks = new List<TaskDef>();
             Tasks.RemoveAll(t => t == null);
             foreach (var t in Tasks) t.Normalize();
+        }
+
+        public static bool JarExists(string dir, string jar)
+        {
+            if (string.IsNullOrEmpty(jar) || string.IsNullOrEmpty(dir)) return false;
+            try { return File.Exists(Path.Combine(dir, jar.StartsWith("@") ? jar.Substring(1).Replace('/', '\\') : jar)); } catch { return false; }
         }
 
         public static string FindJar(string dir)
@@ -456,11 +496,28 @@ namespace Aetheris
         {
             trimTimer = new System.Threading.Timer(_ => Trim(), null, 5000, Timeout.Infinite);
             tickTimer = new System.Threading.Timer(Tick, null, 60000, 60000);
-            if (Cfg.AutoStart || Cfg.AutoStartOnce) ThreadPool.QueueUserWorkItem(_ => { var e = Server.Start(); if (e != null) Server.Log(e); });
+            Updater.CleanupOld();
+            if (Cfg.AutoStart || Cfg.AutoStartOnce) App.Bg(_ => { var e = Server.Start(); if (e != null) Server.Log(e); });
         }
 
         // Called on every panel request; once the panel goes quiet, trim our RAM back to ~2 MB.
         public static DateTime LastTouch;
+
+        // Runs work in the background; an error is logged instead of crashing Aetheris.
+        public static void Bg(Action<object> a)
+        {
+            ThreadPool.QueueUserWorkItem(o => { try { a(o); } catch (Exception ex) { CrashLog("background task", ex); } });
+        }
+
+        public static void CrashLog(string where, Exception ex)
+        {
+            try
+            {
+                File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "aetheris-crash.log"),
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " [" + Program.Version + "] " + where + ": " + ex + "\r\n\r\n");
+            }
+            catch { }
+        }
         public static void Touch() { LastTouch = DateTime.Now; if (trimTimer != null) trimTimer.Change(10000, Timeout.Infinite); }
 
         public static void Trim()
@@ -493,6 +550,7 @@ namespace Aetheris
             catch (Exception ex) { Server.Log("Scheduler error: " + ex.Message); }
             try { if (Watch()) did = true; } catch { }
             try { if (RunTasks()) did = true; } catch (Exception ex) { Server.Log("Schedule error: " + ex.Message); }
+            try { Updater.Tick(); } catch (Exception ex) { App.CrashLog("updater", ex); }
             if (did) Touch();
         }
 
@@ -656,7 +714,7 @@ namespace Aetheris
 
         static void Bg(Func<string> f)
         {
-            ThreadPool.QueueUserWorkItem(_ => { var err = f(); if (err != null) Server.Log(err); });
+            App.Bg(_ => { var err = f(); if (err != null) Server.Log(err); });
         }
 
         void Refresh()
@@ -679,7 +737,7 @@ namespace Aetheris
             if (Server.Running)
             {
                 ni.ShowBalloonTip(4000, "Aetheris", "Saving and stopping the server before exiting…", ToolTipIcon.Info);
-                ThreadPool.QueueUserWorkItem(_ => { Server.StopAndWait(90000); App.Ui.BeginInvoke(new Action(Quit)); });
+                App.Bg(_ => { Server.StopAndWait(90000); App.Ui.BeginInvoke(new Action(Quit)); });
             }
             else Quit();
         }
@@ -940,7 +998,7 @@ namespace Aetheris
             {
                 if (proc != null) return "The server is already running.";
                 if (!App.Configured) return "Choose your server folder in Settings first.";
-                if (c.Jar == "" || !File.Exists(Path.Combine(c.ServerDir, c.Jar))) return "No server jar selected. Pick or install one in Software.";
+                if (!Config.JarExists(c.ServerDir, c.Jar)) return "No server software selected. Pick or install one in Software.";
                 if (!Eula()) return "You need to accept the Minecraft EULA before starting.";
                 var ext = External();
                 if (ext != null) return "A Minecraft server is already running outside Aetheris on port " + ext["port"] + " (" + ext["name"] + ", PID " + ext["pid"] + "). Stop it from the Dashboard first.";
@@ -948,9 +1006,10 @@ namespace Aetheris
                 var a = new StringBuilder();
                 a.Append("-Xms").Append(c.MinRam).Append("M -Xmx").Append(c.MaxRam).Append("M ");
                 if (c.AikarFlags) a.Append(AikarFlags(c.MaxRam)).Append(' ');
-                a.Append("-Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -Dfile.encoding=UTF-8 -Dterminal.jline=false -Dterminal.ansi=true ");
+                a.Append("-Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 ");   // only so the console shows text correctly
                 if (c.JvmArgs != "") a.Append(c.JvmArgs).Append(' ');
-                a.Append("-jar \"").Append(Path.Combine(c.ServerDir, c.Jar)).Append("\" nogui");
+                if (c.Jar.StartsWith("@")) a.Append(c.Jar).Append(" nogui");   // Forge / NeoForge 1.17+: java @libraries/.../win_args.txt
+                else a.Append("-jar \"").Append(Path.Combine(c.ServerDir, c.Jar)).Append("\" nogui");
 
                 var psi = new ProcessStartInfo(c.JavaPath, a.ToString())
                 {
@@ -964,10 +1023,13 @@ namespace Aetheris
                     StandardErrorEncoding = Encoding.UTF8
                 };
                 var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
-                p.OutputDataReceived += (s, e) => { if (e.Data != null) OnLine(e.Data); };
-                p.ErrorDataReceived += (s, e) => { if (e.Data != null) OnLine(e.Data); };
-                p.Exited += OnExit;
+                p.OutputDataReceived += (s, e) => { if (e.Data != null) try { OnLine(e.Data); } catch (Exception ex) { App.CrashLog("output", ex); } };
+                p.ErrorDataReceived += (s, e) => { if (e.Data != null) try { OnLine(e.Data); } catch (Exception ex) { App.CrashLog("output", ex); } };
+                p.Exited += (s, e) => { try { OnExit(s, e); } catch (Exception ex) { App.CrashLog("exit", ex); } };
                 Log("Starting " + c.Jar + " (" + c.MinRam + "–" + c.MaxRam + " MB RAM)…");
+                // windowed apps hand "ignore Ctrl+C" down to console children; clear it so a left-over server can still be
+                // stopped safely (Ctrl+C = save and stop) if Aetheris ever closes while it runs
+                Net2.AllowCtrlCInChildren();
                 try { p.Start(); }
                 catch (Exception ex)
                 {
@@ -1062,7 +1124,7 @@ namespace Aetheris
             if (restart)
             {
                 int delay = crashRestart ? 5000 : 1500;
-                ThreadPool.QueueUserWorkItem(_ => { Thread.Sleep(delay); var err = Start(); if (err != null) Log(err); });
+                App.Bg(_ => { Thread.Sleep(delay); var err = Start(); if (err != null) Log(err); });
             }
         }
 
@@ -1090,7 +1152,7 @@ namespace Aetheris
                 Send("stop", false);
             }
             Fire();
-            ThreadPool.QueueUserWorkItem(_ => StopWatch(p, 90000));
+            App.Bg(_ => StopWatch(p, 90000));
             return null;
         }
 
@@ -1149,7 +1211,7 @@ namespace Aetheris
                 p = proc;
             }
             KillProc(p);
-            ThreadPool.QueueUserWorkItem(_ => StopWatch(p, 5000));
+            App.Bg(_ => StopWatch(p, 5000));
             Alert("Minecraft server restarted", why.Replace("Watchdog: ", ""));
             Fire();
         }
@@ -1216,7 +1278,7 @@ namespace Aetheris
             }
             Fire();
             KillProc(p);
-            ThreadPool.QueueUserWorkItem(_ => StopWatch(p, 5000));
+            App.Bg(_ => StopWatch(p, 5000));
             return null;
         }
 
@@ -1901,7 +1963,14 @@ namespace Aetheris
             if (!string.IsNullOrEmpty(Server.Version)) return Server.Version;
             JarInfo();
             if (verVal != "") return verVal;
-            var m = Regex.Match(App.Cfg.Jar ?? "", @"\d+\.\d+(?:\.\d+)?");
+            var jar = App.Cfg.Jar ?? "";
+            var nf = Regex.Match(jar, @"neoforge[/\\-](\d+)\.(\d+)\.(\d+)");
+            if (nf.Success)   // NeoForge 21.4.x = Minecraft 1.21.4; from 26.x the prefix is the version: 26.1.2.116 = Minecraft 26.1.2
+            {
+                int a = int.Parse(nf.Groups[1].Value), b = int.Parse(nf.Groups[2].Value), c3 = int.Parse(nf.Groups[3].Value);
+                return a < 26 ? "1." + a + (b > 0 ? "." + b : "") : a + "." + b + (c3 > 0 ? "." + c3 : "");
+            }
+            var m = Regex.Match(jar, @"\d+\.\d+(?:\.\d+)?");
             return m.Success ? m.Value : "";
         }
 
@@ -1913,6 +1982,7 @@ namespace Aetheris
             try
             {
                 if (!App.Configured || App.Cfg.Jar == "") return;
+                if (App.Cfg.Jar.StartsWith("@")) return;
                 var path = Path.Combine(App.Cfg.ServerDir, App.Cfg.Jar);
                 if (!File.Exists(path)) return;
                 var key = path + "|" + File.GetLastWriteTimeUtc(path).Ticks;
@@ -2309,6 +2379,7 @@ namespace Aetheris
                 using (var za = ZipFile.OpenRead(tmp))
                 {
                     if (za.GetEntry("modrinth.index.json") != null) return MrPack(za);
+                    if (za.GetEntry("manifest.json") != null && kind == "mods" && !za.Entries.Any(e => Regex.IsMatch(Norm(e), @"(^|/)mods/.+\.jar$", RegexOptions.IgnoreCase))) return CfPack(za);
                     if (kind == "datapacks")
                     {
                         if (za.GetEntry("pack.mcmeta") != null) moveWhole = true;
@@ -2386,6 +2457,58 @@ namespace Aetheris
             return Jsn.D("ok", true, "added", added, "note", note);
         }
 
+        // CurseForge modpack (manifest.json + overrides). Needs the user's CurseForge API key to resolve the mod files.
+        static object CfPack(ZipArchive za)
+        {
+            string json;
+            using (var r = new StreamReader(za.GetEntry("manifest.json").Open(), Encoding.UTF8)) json = r.ReadToEnd();
+            var d = Jsn.S.DeserializeObject(json) as Dictionary<string, object>;
+            if (d == null || !d.ContainsKey("files")) throw new Fail("That zip has a manifest.json, but it isn't a CurseForge modpack.");
+            if (App.Cfg.CurseForgeKey == "") throw new Fail("This is a CurseForge modpack. Add your free CurseForge API key in Settings so Aetheris can download its mods, or upload the pack's “Server Pack” zip instead (no key needed).");
+            var files = (d["files"] as object[]) ?? new object[0];
+            var dir = Dir("mods");
+            int done = 0, failed = 0, i = 0;
+            Server.Log("Installing CurseForge modpack " + (d.ContainsKey("name") ? d["name"] : "") + " (" + files.Length + " mods)…");
+            foreach (var o in files)
+            {
+                i++;
+                var f = o as Dictionary<string, object>;
+                if (f == null) continue;
+                try
+                {
+                    var info = Jsn.S.DeserializeObject(Net.CurseForge("/v1/mods/" + Convert.ToInt64(f["projectID"]) + "/files/" + Convert.ToInt64(f["fileID"]))) as Dictionary<string, object>;
+                    var data = info != null ? info["data"] as Dictionary<string, object> : null;
+                    var name = Convert.ToString(data["fileName"]);
+                    var url = data.ContainsKey("downloadUrl") && data["downloadUrl"] != null ? Convert.ToString(data["downloadUrl"]) : null;
+                    long fid = Convert.ToInt64(data["id"]);
+                    if (url == null) url = "https://edge.forgecdn.net/files/" + (fid / 1000) + "/" + (fid % 1000) + "/" + Uri.EscapeDataString(name);
+                    if (!Regex.IsMatch(name, @"^[^\\/:*?""<>|]+$")) throw new Exception("bad name");
+                    Net.DownloadTo(url, Path.Combine(dir, name));
+                    done++;
+                }
+                catch (Exception ex) { failed++; Server.Log("CurseForge: couldn't get file " + i + ": " + ex.Message); }
+                if (i % 10 == 0) Server.Log("CurseForge modpack: " + i + "/" + files.Length + "…");
+            }
+            var over = (d.ContainsKey("overrides") ? Convert.ToString(d["overrides"]) : "overrides") + "/";
+            int extracted = 0;
+            foreach (var e in za.Entries)
+            {
+                var n = Norm(e);
+                if (!n.StartsWith(over) || n.EndsWith("/")) continue;
+                Extract(e, Fs.Safe(n.Substring(over.Length)));
+                extracted++;
+            }
+            var mc = d.ContainsKey("minecraft") ? d["minecraft"] as Dictionary<string, object> : null;
+            string mcv = mc != null && mc.ContainsKey("version") ? Convert.ToString(mc["version"]) : "";
+            string loader = "";
+            if (mc != null && mc.ContainsKey("modLoaders"))
+                foreach (var l in (mc["modLoaders"] as object[]) ?? new object[0]) { var ld = l as Dictionary<string, object>; if (ld != null) { loader = Convert.ToString(ld["id"]); break; } }
+            Server.Log("CurseForge modpack installed: " + done + " mods, " + extracted + " config files" + (failed > 0 ? ", " + failed + " failed" : "") + ".");
+            return Jsn.D("ok", true, "added", new string[0], "pack", d.ContainsKey("name") ? d["name"] : "Modpack",
+                "deps", Jsn.D("minecraft", mcv, "loader", loader),
+                "note", "Installed " + done + " mods" + (failed > 0 ? " (" + failed + " couldn't be downloaded)" : "") + ". CurseForge packs are made for players: if the server crashes, disable client-only mods (minimaps, shaders, menus).");
+        }
+
         static object MrPack(ZipArchive za)
         {
             string json;
@@ -2425,6 +2548,162 @@ namespace Aetheris
             return Jsn.D("ok", true, "added", new string[0], "pack", d.ContainsKey("name") ? d["name"] : "Modpack",
                 "downloaded", done, "skipped", skipped, "deps", d.ContainsKey("dependencies") ? d["dependencies"] : null,
                 "note", "Installed " + done + " mods and " + over + " config files.");
+        }
+    }
+
+    // ------------------------------------------------------------------ Forge / NeoForge server installers
+    static class Loaders
+    {
+        public static object Install(string loader, string version, string mc)
+        {
+            if (!App.Configured) throw new Fail("Choose your server folder first.");
+            if (Server.Running) throw new Fail("Stop the server before installing Forge or NeoForge.");
+            if (!Regex.IsMatch(version ?? "", @"^[0-9A-Za-z.\-+]{1,40}$") || !Regex.IsMatch(mc ?? "", @"^[0-9A-Za-z.\-]{0,20}$")) throw new Fail("Invalid version.");
+            string url;
+            if (loader == "forge") url = "https://maven.minecraftforge.net/net/minecraftforge/forge/" + mc + "-" + version + "/forge-" + mc + "-" + version + "-installer.jar";
+            else if (loader == "neoforge") url = "https://maven.neoforged.net/releases/net/neoforged/neoforge/" + version + "/neoforge-" + version + "-installer.jar";
+            else throw new Fail("Unknown loader.");
+            var dir = App.Cfg.ServerDir;
+            var inst = Path.Combine(dir, ".aetheris-installer.jar");
+            Server.Log("Downloading the " + loader + " " + version + " installer…");
+            Net.DownloadTo(url, inst);
+            Server.Log("Running the " + loader + " installer (downloads libraries, this can take a few minutes)…");
+            var psi = new ProcessStartInfo(App.Cfg.JavaPath, "-jar \"" + inst + "\" --installServer")
+            { WorkingDirectory = dir, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            int lines = 0;
+            using (var p = new Process { StartInfo = psi })
+            {
+                DataReceivedEventHandler h = (s, e) => { if (e.Data != null && (++lines % 25 == 0 || Regex.IsMatch(e.Data, "(?i)error|exception|success|finished"))) Server.Log("[installer] " + e.Data); };
+                p.OutputDataReceived += h; p.ErrorDataReceived += h;
+                try { p.Start(); } catch (Exception ex) { throw new Fail("Couldn't run Java for the installer: " + ex.Message); }
+                p.BeginOutputReadLine(); p.BeginErrorReadLine();
+                if (!p.WaitForExit(15 * 60 * 1000)) { try { p.Kill(); } catch { } throw new Fail("The installer took too long."); }
+                p.WaitForExit();
+                if (p.ExitCode != 0) throw new Fail("The " + loader + " installer failed (exit code " + p.ExitCode + "). See the console for details. Forge needs the right Java version for this Minecraft version.");
+            }
+            try { File.Delete(inst); File.Delete(inst + ".log"); } catch { }
+            foreach (var f in Directory.GetFiles(dir, "installer.log")) try { File.Delete(f); } catch { }
+
+            // how this Forge/NeoForge version starts: a runnable jar, or java @args file (1.17+)
+            string jar = null;
+            var args = loader == "forge"
+                ? Path.Combine(dir, @"libraries\net\minecraftforge\forge\" + mc + "-" + version + @"\win_args.txt")
+                : Path.Combine(dir, @"libraries\net\neoforged\neoforge\" + version + @"\win_args.txt");
+            var shim = Directory.GetFiles(dir, (loader == "forge" ? "forge-" : "neoforge-") + "*-shim.jar").FirstOrDefault();
+            var plain = loader == "forge" ? Path.Combine(dir, "forge-" + mc + "-" + version + ".jar") : null;
+            if (shim != null) jar = Path.GetFileName(shim);
+            else if (File.Exists(args)) jar = "@" + args.Substring(dir.TrimEnd('\\').Length + 1).Replace('\\', '/');
+            else if (plain != null && File.Exists(plain)) jar = Path.GetFileName(plain);
+            else throw new Fail("The installer finished, but Aetheris couldn't find how to start " + loader + ". Check the server folder.");
+            App.Cfg.Jar = jar; App.Cfg.Save();
+            Server.Log(loader + " " + version + " installed. It will be used on the next start.");
+            return Jsn.D("ok", true, "jar", jar);
+        }
+    }
+
+    // ------------------------------------------------------------------ automatic updates from GitHub releases
+    static class Updater
+    {
+        const string Repo = "jjtjtyt6644/McUi";
+        static string latest = "", status = "", error = "";
+        static volatile bool busy;
+        static bool notified;
+
+        public static object Info()
+        {
+            return Jsn.D("current", Program.Version, "latest", latest, "available", latest != "" && Newer(latest), "auto", App.Cfg.AutoUpdate,
+                "busy", busy, "status", status, "error", error, "lastCheck", App.Cfg.LastUpdateCheck);
+        }
+
+        static bool Newer(string v)
+        {
+            Version a, b;
+            return System.Version.TryParse(v.TrimStart('v', 'V'), out a) && System.Version.TryParse(Program.Version, out b) && a > b;
+        }
+
+        // Called every minute by the scheduler; only talks to GitHub every 6 hours (or when asked).
+        public static void Tick()
+        {
+            var c = App.Cfg;
+            if (!c.AutoUpdate) return;
+            if (DateTime.UtcNow.Ticks - c.LastUpdateCheck > TimeSpan.FromHours(6).Ticks) Check(false);
+            if (latest != "" && Newer(latest) && !busy)
+            {
+                if (Server.State == "offline") InstallAsync(false);
+                else if (!notified) { notified = true; Server.Log("Aetheris " + latest + " is available. It installs automatically the next time the server is stopped, or click Install in Settings."); }
+            }
+        }
+
+        // Asks github.com which release is latest. Uses the release page redirect (not the rate-limited API) with cache-busting.
+        public static void Check(bool force)
+        {
+            if (busy) return;
+            try
+            {
+                status = "checking"; error = "";
+                var req = (HttpWebRequest)WebRequest.Create("https://github.com/" + Repo + "/releases/latest?_=" + DateTime.UtcNow.Ticks);
+                req.Method = "HEAD"; req.AllowAutoRedirect = false; req.Timeout = 15000;
+                req.UserAgent = "Aetheris/" + Program.Version;
+                req.Headers[HttpRequestHeader.CacheControl] = "no-cache"; req.Headers[HttpRequestHeader.Pragma] = "no-cache";
+                using (var r = (HttpWebResponse)req.GetResponse())
+                {
+                    var loc = r.Headers["Location"] ?? "";
+                    var m = Regex.Match(loc, @"/releases/tag/([^/?#]+)");
+                    if (m.Success) latest = Uri.UnescapeDataString(m.Groups[1].Value);
+                }
+                App.Cfg.LastUpdateCheck = DateTime.UtcNow.Ticks;
+                try { App.Cfg.Save(); } catch { }
+                status = latest != "" && Newer(latest) ? "available" : "up to date";
+            }
+            catch (Exception ex) { status = "failed"; error = ex.Message; }
+        }
+
+        public static void InstallAsync(bool userAsked)
+        {
+            if (busy) return;
+            if (latest == "" || !Newer(latest)) { Check(true); if (latest == "" || !Newer(latest)) return; }
+            busy = true;
+            App.Bg(_ =>
+            {
+                try { Install(); }
+                catch (Exception ex) { status = "failed"; error = ex.Message; Server.Log("Update failed: " + ex.Message); }
+                finally { busy = false; }
+            });
+        }
+
+        static void Install()
+        {
+            status = "downloading";
+            var exe = Application.ExecutablePath;
+            var dir = Path.GetDirectoryName(exe);
+            var tmp = Path.Combine(dir, "Aetheris.update.exe");
+            Server.Log("Downloading Aetheris " + latest + "…");
+            Net.DownloadTo("https://github.com/" + Repo + "/releases/download/" + Uri.EscapeDataString(latest) + "/Aetheris.exe?_=" + DateTime.UtcNow.Ticks, tmp);
+            var b = File.ReadAllBytes(tmp);
+            if (b.Length < 100000 || b[0] != 'M' || b[1] != 'Z') { File.Delete(tmp); throw new Exception("the download isn't a valid Aetheris.exe"); }
+            var fv = FileVersionInfo.GetVersionInfo(tmp);
+            Version nv, cv;
+            if (!System.Version.TryParse(fv.FileVersion ?? "", out nv) || !System.Version.TryParse(Program.Version, out cv) || nv <= cv)
+            { File.Delete(tmp); throw new Exception("the downloaded file isn't newer (" + fv.FileVersion + ")"); }
+            status = "installing";
+            var old = Path.Combine(dir, "Aetheris.old-" + Program.Version + ".exe");
+            if (File.Exists(old)) File.Delete(old);
+            File.Move(exe, old);           // a running exe can be renamed
+            File.Move(tmp, exe);
+            Server.Log("Starting Aetheris " + latest + "… (the server is saved and restarted by the new version if it was running)");
+            using (Process.Start(new ProcessStartInfo(exe, "--replace --tray") { UseShellExecute = false, WorkingDirectory = dir })) { }
+            // the new copy asks this one to shut down (/api/shutdown) and takes over
+        }
+
+        public static void CleanupOld()
+        {
+            App.Bg(_ =>
+            {
+                Thread.Sleep(8000);
+                var dir = AppDomain.CurrentDomain.BaseDirectory;
+                foreach (var f in Directory.GetFiles(dir, "Aetheris.old*.exe").Concat(Directory.GetFiles(dir, "Aetheris.update.exe")))
+                    try { File.Delete(f); } catch { }
+            });
         }
     }
 
@@ -2486,7 +2765,8 @@ namespace Aetheris
         static readonly string[] Hosts = {
             "piston-meta.mojang.com", "piston-data.mojang.com", "launchermeta.mojang.com", "launcher.mojang.com",
             "api.papermc.io", "fill.papermc.io", "fill-data.papermc.io", "api.purpurmc.org", "meta.fabricmc.net",
-            "api.modrinth.com", "cdn.modrinth.com", "github.com", "objects.githubusercontent.com", "raw.githubusercontent.com", "release-assets.githubusercontent.com" };
+            "api.modrinth.com", "cdn.modrinth.com", "files.minecraftforge.net", "maven.minecraftforge.net", "maven.neoforged.net",
+            "api.curseforge.com", "edge.forgecdn.net", "mediafilez.forgecdn.net", "github.com", "objects.githubusercontent.com", "raw.githubusercontent.com", "release-assets.githubusercontent.com" };
 
         class Wc : WebClient
         {
@@ -2509,7 +2789,7 @@ namespace Aetheris
         {
             Uri u;
             if (!Uri.TryCreate(url ?? "", UriKind.Absolute, out u) || u.Scheme != "https" || !Hosts.Contains(u.Host.ToLowerInvariant()))
-                throw new Fail("Downloads are only allowed from Mojang, PaperMC, Purpur, Fabric, Modrinth or GitHub.");
+                throw new Fail("Downloads are only allowed from Mojang, PaperMC, Purpur, Fabric, Forge, NeoForge, Modrinth, CurseForge or GitHub.");
             return u;
         }
 
@@ -2518,6 +2798,25 @@ namespace Aetheris
             var u = Check(url);
             try { using (var wc = Client()) return wc.DownloadString(u); }
             catch (WebException ex) { throw new Fail("Request failed: " + ex.Message); }
+        }
+
+        public static string CurseForge(string path)
+        {
+            try
+            {
+                using (var wc = Client())
+                {
+                    wc.Headers["x-api-key"] = App.Cfg.CurseForgeKey;
+                    wc.Headers[HttpRequestHeader.Accept] = "application/json";
+                    return wc.DownloadString(Check("https://api.curseforge.com" + path));
+                }
+            }
+            catch (WebException ex)
+            {
+                var r = ex.Response as HttpWebResponse;
+                if (r != null && (int)r.StatusCode == 403) throw new Fail("CurseForge rejected the API key. Check it in Settings.");
+                throw new Fail("CurseForge request failed: " + ex.Message);
+            }
         }
 
         public static string PostJson(string url, string body)
@@ -2679,6 +2978,7 @@ namespace Aetheris
         {
             listener = new TcpListener(IPAddress.Loopback, port);
             listener.Start();
+            NoInherit(listener.Server.Handle);
             Port = port;
             new Thread(Loop) { IsBackground = true, Name = "http" }.Start();
         }
@@ -2689,9 +2989,15 @@ namespace Aetheris
             {
                 TcpClient c;
                 try { c = listener.AcceptTcpClient(); } catch { return; }
+                NoInherit(c.Client.Handle);
                 ThreadPool.QueueUserWorkItem(Handle, c);
             }
         }
+
+        // .NET sockets are inheritable by default: without this, the Minecraft server (a child process) keeps a copy of
+        // the panel's port open, so after Aetheris closes the port stays "in use" and the panel can't reconnect.
+        [DllImport("kernel32.dll")] static extern bool SetHandleInformation(IntPtr h, uint mask, uint flags);
+        static void NoInherit(IntPtr h) { try { SetHandleInformation(h, 1, 0); } catch { } }
 
         static string ReadLine(Stream s)
         {
@@ -2770,7 +3076,7 @@ namespace Aetheris
 
             if (r.Path == "/" || r.Path == "/index.html")
             {
-                r.Send(200, "text/html; charset=utf-8", Page(), "Content-Security-Policy: default-src 'self'; img-src 'self' data: blob: https://mc-heads.net https://cdn.modrinth.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'\r\n");
+                r.Send(200, "text/html; charset=utf-8", Page(), "Content-Security-Policy: default-src 'self'; img-src 'self' data: blob: https://mc-heads.net https://cdn.modrinth.com https://media.forgecdn.net; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'\r\n");
                 return;
             }
             if (!r.Path.StartsWith("/api/")) { r.Send(404, "text/plain", Encoding.UTF8.GetBytes("Not found"), null); return; }
@@ -2790,12 +3096,14 @@ namespace Aetheris
 
         static object Ok() { return Jsn.D("ok", true); }
 
+        static T Safe<T>(Func<T> f, T def) { try { return f(); } catch (Exception ex) { App.CrashLog("state", ex); return def; } }
+
         static object State(Req r)
         {
             long ram; double cpu;
             Server.Stats(out ram, out cpu);
-            var live = Server.Live();
-            var p = Props.Read();
+            var live = Safe(() => Server.Live(), null);
+            var p = Safe(() => Props.Read(), new Dictionary<string, string>());
             string v;
             var c = App.Cfg;
             return Jsn.D(
@@ -2809,11 +3117,11 @@ namespace Aetheris
                 "ram", ram, "cpu", Math.Round(cpu, 1), "xmx", c.MaxRam,
                 "address", c.Address, "jar", c.Jar, "dir", c.ServerDir,
                 "eula", Server.Eula(), "configured", App.Configured,
-                "playit", c.PlayitPath != "" || c.StartPlayit ? (object)Server.PlayitRunning() : null,
+                "playit", c.PlayitPath != "" || c.StartPlayit ? (object)Safe(() => Server.PlayitRunning(), false) : null,
                 "snake", Server.SnakeRules(), "sysram", App.SysRamMb(), "sysfree", App.SysFreeMb(),
-                "icon", App.Configured && File.Exists(Path.Combine(c.ServerDir, "server-icon.png")),
-                "loader", Addons.Loader(), "mc", Addons.McVersion(), "sample", Server.Latest(),
-                "hist", r.Qs("hist") != "" ? (object)Server.History(0) : null, "pending", Server.Pending(), "external", Server.External(), "aetheris", Program.Version, "tasks", c.Tasks.Count(t => t.Enabled));
+                "icon", Safe(() => App.Configured && File.Exists(Path.Combine(c.ServerDir, "server-icon.png")), false),
+                "loader", Safe(() => Addons.Loader(), "vanilla"), "mc", Safe(() => Addons.McVersion(), ""), "sample", Server.Latest(),
+                "hist", r.Qs("hist") != "" ? (object)Server.History(0) : null, "pending", Server.Pending(), "external", Safe(() => Server.External(), null), "aetheris", Program.Version, "tasks", c.Tasks.Count(t => t.Enabled), "update", Updater.Info());
         }
 
         static object SaveConfig(Req r)
@@ -2824,7 +3132,8 @@ namespace Aetheris
             var n = Jsn.S.ConvertToType<Config>(cd);
             n.Normalize();
             if (n.ServerDir != "" && !Directory.Exists(n.ServerDir)) throw new Fail("That server folder doesn't exist.");
-            if (n.ServerDir != "" && (n.Jar == "" || !File.Exists(Path.Combine(n.ServerDir, n.Jar)))) n.Jar = Config.FindJar(n.ServerDir);
+            if (n.ServerDir != "" && !Config.JarExists(n.ServerDir, n.Jar)) n.Jar = Config.FindJar(n.ServerDir);
+            n.Cv = 2; n.LastUpdateCheck = App.Cfg.LastUpdateCheck;
             if (n.PlayitPath != "" && !File.Exists(n.PlayitPath)) throw new Fail("playit.gg program not found at that path.");
             n.Tasks = App.Cfg.Tasks;   // schedules are saved separately
             var o = App.Cfg;
@@ -2963,7 +3272,7 @@ namespace Aetheris
                         if (App.Configured)
                             foreach (var f in new DirectoryInfo(c.ServerDir).GetFiles("*.jar").OrderBy(x => x.Name))
                                 list.Add(Jsn.D("name", f.Name, "size", f.Length, "modified", Jsn.Ms(f.LastWriteTimeUtc)));
-                        return Jsn.D("jars", list, "current", c.Jar);
+                        return Jsn.D("jars", list, "current", c.Jar, "argsFile", c.Jar.StartsWith("@"));
                     }
 
                 case "/api/usejar":
@@ -2985,6 +3294,30 @@ namespace Aetheris
                         Server.NeedRestart("server software");
                         return res;
                     }
+
+                case "/api/install-loader":
+                    {
+                        var res = Loaders.Install(r.S("loader"), r.S("version"), r.S("mc"));
+                        Server.NeedRestart("server software");
+                        return res;
+                    }
+
+                case "/api/cf":
+                    {
+                        if (c.CurseForgeKey == "") throw new Fail("Add your CurseForge API key in Settings first.");
+                        var path = r.Qs("path");
+                        if (!path.StartsWith("/v1/")) throw new Fail("Invalid CurseForge request.");
+                        r.Send(200, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(Net.CurseForge(path)), null);
+                        return null;
+                    }
+
+                case "/api/update":
+                    if (r.Method == "POST")
+                    {
+                        if (r.S("action") == "install") Updater.InstallAsync(true);
+                        else Updater.Check(true);
+                    }
+                    return Updater.Info();
 
                 case "/api/java":
                     return Jsn.D("version", Net.JavaVersion(r.S("path") != "" ? r.S("path") : c.JavaPath));
