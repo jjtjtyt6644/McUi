@@ -2,9 +2,11 @@
 
 A lightweight Minecraft server panel for Windows. It gives you Aternos-style controls for the server you host yourself, so you don't have to work in a command prompt.
 
-- **Dashboard:** big Start/Stop button, status, address with a copy button, players, version, uptime, CPU and RAM
+- **Dashboard:** big Start/Stop button, status, server icon, address with a copy button, players, version, uptime, free PC memory, and live **server RAM and CPU graphs** (RAM measured the same way as Task Manager)
+- **Mods & plugins:** drag and drop `.jar`, `.zip` (loose jars or whole server packs with configs) and Modrinth `.mrpack` modpacks. Browse and install from Modrinth with required dependencies installed automatically. Enable or disable each one. Datapacks too.
+- **Auto-reconnect:** the panel reconnects to Aetheris by itself, the playit.gg tunnel is restarted if it closes, and a connection watchdog restarts the server if it stops accepting players. Tray pop-ups on crashes.
 - **Console:** live, colour-coded log, command box with history (↑/↓) and quick commands
-- **Options:** every important `server.properties` setting as toggles and sliders, plus a MOTD editor with colour codes and a live preview
+- **Options:** every important `server.properties` setting as toggles and sliders (including pause-when-empty, spawn monsters and file compression), a MOTD editor with colour codes and a live preview, and server icon upload. On Paper, Purpur or Spigot you also get **Allow the End**, spawn limits, autosave interval and connection throttle (`bukkit.yml`).
 - **Game rules:** keepInventory, mobGriefing, daylight cycle and more, applied instantly
 - **Players:** online players (op/kick/ban), whitelist, operators, bans and IP bans. Works offline too, with premium UUID lookup
 - **Worlds:** switch, create, reset (new seed or type) and delete worlds

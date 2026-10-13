@@ -1,3 +1,5 @@
 aetheris.json
 *.part
 *.upload
+*.old.exe
+release/

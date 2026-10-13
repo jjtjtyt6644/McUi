@@ -35,7 +35,8 @@ namespace Aetheris
         {
             bool trayOnly = args.Any(a => a == "--tray");
             bool created;
-            var mutex = new Mutex(true, "Local\\AetherisPanel", out created);
+            // one instance per install folder (so separate servers can each have their own panel)
+            var mutex = new Mutex(true, "Local\\AetherisPanel_" + AppDomain.CurrentDomain.BaseDirectory.ToLowerInvariant().GetHashCode().ToString("x"), out created);
             App.Cfg = Config.Load();
             if (!created) { App.OpenUi(); return; }
 
@@ -89,12 +90,15 @@ namespace Aetheris
         public int BackupHours { get; set; }
         public int BackupKeep { get; set; }
         public string DailyRestart { get; set; }
+        public bool Watchdog { get; set; }
+        public bool Notify { get; set; }
 
         public Config()
         {
             ServerDir = ""; Jar = ""; JavaPath = "java"; MinRam = 1024; MaxRam = 2048; JvmArgs = "";
             AikarFlags = true; AutoRestart = true; PlayitPath = ""; Address = ""; Port = 8165;
             AppWindow = true; OpenOnLaunch = true; BackupKeep = 10; DailyRestart = "";
+            Watchdog = true; Notify = true;
         }
 
         static string FilePath { get { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "aetheris.json"); } }
@@ -202,7 +206,33 @@ namespace Aetheris
                 }
             }
             catch (Exception ex) { Server.Log("Scheduler error: " + ex.Message); }
+            try { if (Watch()) did = true; } catch { }
             if (did) Touch();
+        }
+
+        static int pingFails;
+        // Keeps the server reachable: restarts a dead playit tunnel and a server that stopped answering connections.
+        static bool Watch()
+        {
+            var c = Cfg;
+            bool did = false;
+            if (Server.State != "online") { pingFails = 0; return false; }
+            if (c.StartPlayit) did |= Server.EnsurePlayit();
+            if (!c.Watchdog || (DateTime.Now - Server.Started).TotalMinutes < 3 || Props.Get("enable-status", "true") == "false") { pingFails = 0; return did; }
+            int port; if (!int.TryParse(Props.Get("server-port", "25565"), out port)) port = 25565;
+            var ip = Props.Get("server-ip", "");
+            if (Server.Ping(ip == "" ? "127.0.0.1" : ip, port, 10000)) { pingFails = 0; return did; }
+            pingFails++;
+            if (pingFails < 3) { Server.Log("Watchdog: the server didn't answer a connection check (" + pingFails + "/3)."); return true; }
+            pingFails = 0;
+            Server.ForceRestart("Watchdog: the server stopped accepting connections for 3 minutes — restarting it.");
+            return true;
+        }
+
+        public static long SysFreeMb()
+        {
+            try { var m = new MemStatus(); if (GlobalMemoryStatusEx(m)) return (long)(m.Avail / 1048576UL); } catch { }
+            return 0;
         }
 
         public static long SysRamMb()
@@ -290,6 +320,11 @@ namespace Aetheris
             };
             ni.MouseClick += (s, e) => { if (e.Button == MouseButtons.Left) App.OpenUi(); };
             Server.Changed += () => { try { App.Ui.BeginInvoke(new Action(Refresh)); } catch { } };
+            Server.Notify += (t, m) =>
+            {
+                if (!App.Cfg.Notify) return;
+                try { App.Ui.BeginInvoke(new Action(() => ni.ShowBalloonTip(6000, t, m, ToolTipIcon.Warning))); } catch { }
+            };
             Refresh();
             App.Init();
             if (open) App.OpenUi();
@@ -349,6 +384,17 @@ namespace Aetheris
         static readonly List<DateTime> crashes = new List<DateTime>();
         static TimeSpan lastCpu; static DateTime lastWall;
         public static event Action Changed;
+        public static event Action<string, string> Notify;
+        static void Alert(string t, string m) { var n = Notify; if (n != null) try { n(t, m); } catch { } }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Pmc2
+        {
+            public uint cb, PageFaultCount;
+            public UIntPtr PeakWorkingSetSize, WorkingSetSize, QuotaPeakPagedPoolUsage, QuotaPagedPoolUsage, QuotaPeakNonPagedPoolUsage,
+                QuotaNonPagedPoolUsage, PagefileUsage, PeakPagefileUsage, PrivateUsage, PrivateWorkingSetSize, SharedCommitUsage;
+        }
+        [DllImport("psapi.dll")] static extern bool GetProcessMemoryInfo(IntPtr h, ref Pmc2 c, uint cb);
 
         static readonly Regex Ansi = new Regex(@"\x1B\[[0-9;?]*[ -/]*[@-~]|\x1B[()][A-Z0-9]|\r");
         static readonly Regex JoinRe = new Regex(@"\]: ([A-Za-z0-9_.]{1,17}) joined the game");
@@ -548,8 +594,12 @@ namespace Aetheris
                 {
                     crashes.RemoveAll(t => (DateTime.Now - t).TotalMinutes > 10);
                     crashes.Add(DateTime.Now);
-                    if (crashes.Count <= 3) { restart = crashRestart = true; Log("The server crashed — restarting in 5 seconds (auto-restart is on)."); }
-                    else Log("The server crashed 3 times in 10 minutes — not restarting automatically.");
+                    if (crashes.Count <= 3) { restart = crashRestart = true; Log("The server crashed — restarting in 5 seconds (auto-restart is on)."); Alert("Minecraft server crashed", "Aetheris is restarting it automatically."); }
+                    else { Log("The server crashed 3 times in 10 minutes — not restarting automatically."); Alert("Minecraft server keeps crashing", "It crashed 3 times in 10 minutes, so Aetheris left it offline. Check the console."); }
+                }
+                else if (crashed)
+                {
+                    Alert("Minecraft server stopped", "The server stopped unexpectedly (exit code " + code + ").");
                 }
                 restartPending = false;
                 try { p.Dispose(); } catch { }
@@ -598,6 +648,58 @@ namespace Aetheris
             return null;
         }
 
+        public static void ForceRestart(string why)
+        {
+            lock (L)
+            {
+                if (proc == null) return;
+                stopRequested = false; restartPending = true; State = "stopping";
+                Log(why);
+                try { proc.Kill(); } catch { }
+            }
+            Alert("Minecraft server restarted", why.Replace("Watchdog: ", ""));
+            Fire();
+        }
+
+        static void VarInt(List<byte> l, int v)
+        {
+            uint u = (uint)v;
+            do { byte b = (byte)(u & 0x7F); u >>= 7; if (u != 0) b |= 0x80; l.Add(b); } while (u != 0);
+        }
+
+        // Minecraft "server list ping": true if the server answers a status request.
+        public static bool Ping(string host, int port, int timeoutMs)
+        {
+            try
+            {
+                using (var c = new TcpClient())
+                {
+                    var ar = c.BeginConnect(host, port, null, null);
+                    if (!ar.AsyncWaitHandle.WaitOne(timeoutMs)) return false;
+                    c.EndConnect(ar);
+                    c.ReceiveTimeout = timeoutMs; c.SendTimeout = timeoutMs;
+                    var body = new List<byte>();
+                    VarInt(body, 0); VarInt(body, -1);
+                    var hb = Encoding.UTF8.GetBytes(host); VarInt(body, hb.Length); body.AddRange(hb);
+                    body.Add((byte)(port >> 8)); body.Add((byte)port); VarInt(body, 1);
+                    var pkt = new List<byte>(); VarInt(pkt, body.Count); pkt.AddRange(body); pkt.Add(1); pkt.Add(0);
+                    var s = c.GetStream();
+                    s.Write(pkt.ToArray(), 0, pkt.Count);
+                    return s.ReadByte() >= 0;
+                }
+            }
+            catch { return false; }
+        }
+
+        public static bool EnsurePlayit()
+        {
+            var c = App.Cfg;
+            if (c.PlayitPath == "" || !File.Exists(c.PlayitPath) || PlayitRunning()) return false;
+            Log("The playit.gg tunnel wasn't running — starting it again.");
+            StartPlayit();
+            return true;
+        }
+
         public static void StopAndWait(int ms)
         {
             Process p;
@@ -630,6 +732,10 @@ namespace Aetheris
             {
                 p.Refresh();
                 ramMb = p.WorkingSet64 / 1048576;
+                // Task Manager's "Memory" column is the private working set
+                var m = new Pmc2(); m.cb = (uint)Marshal.SizeOf(typeof(Pmc2));
+                if (GetProcessMemoryInfo(p.Handle, ref m, m.cb) && m.PrivateWorkingSetSize.ToUInt64() > 0)
+                    ramMb = (long)(m.PrivateWorkingSetSize.ToUInt64() / 1048576UL);
                 var now = DateTime.UtcNow; var t = p.TotalProcessorTime;
                 if (lastWall != DateTime.MinValue)
                 {
@@ -685,7 +791,7 @@ namespace Aetheris
             catch { return false; }
         }
 
-        static void StartPlayit()
+        public static void StartPlayit()
         {
             var c = App.Cfg;
             if (!c.StartPlayit || c.PlayitPath == "" || !File.Exists(c.PlayitPath) || PlayitRunning()) return;
@@ -1169,12 +1275,341 @@ namespace Aetheris
         public static string PathFor(string name) { return FilePath(name); }
     }
 
+    // ------------------------------------------------------------------ mods / plugins / datapacks
+    static class Addons
+    {
+        public static string Dir(string kind)
+        {
+            if (!App.Configured) throw new Fail("Choose your server folder first.");
+            var d = App.Cfg.ServerDir;
+            switch (kind)
+            {
+                case "mods": return Path.Combine(d, "mods");
+                case "plugins": return Path.Combine(d, "plugins");
+                case "datapacks": return Path.Combine(d, Props.Get("level-name", "world"), "datapacks");
+            }
+            throw new Fail("Unknown add-on type.");
+        }
+
+        public static string Loader()
+        {
+            var jar = (App.Cfg.Jar ?? "").ToLowerInvariant();
+            foreach (var k in new[] { "neoforge", "forge", "quilt", "fabric", "purpur", "folia", "paper", "spigot", "bukkit" })
+                if (jar.Contains(k)) return k;
+            if (!App.Configured) return "vanilla";
+            var d = App.Cfg.ServerDir;
+            if (Directory.Exists(Path.Combine(d, ".fabric"))) return "fabric";
+            if (Directory.Exists(Path.Combine(d, @"libraries\net\neoforged"))) return "neoforge";
+            if (Directory.Exists(Path.Combine(d, @"libraries\net\minecraftforge"))) return "forge";
+            if (File.Exists(Path.Combine(d, "bukkit.yml"))) return "paper";
+            return "vanilla";
+        }
+
+        public static string McVersion()
+        {
+            if (!string.IsNullOrEmpty(Server.Version)) return Server.Version;
+            var m = Regex.Match(App.Cfg.Jar ?? "", @"\d+\.\d+(?:\.\d+)?");
+            return m.Success ? m.Value : "";
+        }
+
+        static Dictionary<string, object> JarMeta(string path)
+        {
+            try
+            {
+                using (var za = ZipFile.OpenRead(path))
+                {
+                    var e = za.GetEntry("fabric.mod.json");
+                    if (e != null)
+                    {
+                        var d = Jsn.S.DeserializeObject(ReadEntry(e)) as Dictionary<string, object>;
+                        if (d != null) return Jsn.D("name", d.ContainsKey("name") ? d["name"] : null, "version", d.ContainsKey("version") ? d["version"] : null, "desc", d.ContainsKey("description") ? d["description"] : null);
+                    }
+                    e = za.GetEntry("META-INF/neoforge.mods.toml") ?? za.GetEntry("META-INF/mods.toml");
+                    if (e != null)
+                    {
+                        var t = ReadEntry(e);
+                        return Jsn.D("name", Toml(t, "displayName"), "version", Toml(t, "version"), "desc", Toml(t, "description"));
+                    }
+                    e = za.GetEntry("paper-plugin.yml") ?? za.GetEntry("plugin.yml");
+                    if (e != null)
+                    {
+                        var t = ReadEntry(e);
+                        return Jsn.D("name", Yml(t, "name"), "version", Yml(t, "version"), "desc", Yml(t, "description"));
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        static string ReadEntry(ZipArchiveEntry e)
+        {
+            if (e.Length > 512 * 1024) return "";
+            using (var r = new StreamReader(e.Open(), Encoding.UTF8)) return r.ReadToEnd();
+        }
+        static string Toml(string t, string k)
+        {
+            var m = Regex.Match(t, @"(?m)^\s*" + k + @"\s*=\s*(?:""([^""]*)""|'([^']*)')");
+            var v = m.Success ? (m.Groups[1].Value + m.Groups[2].Value).Trim() : null;
+            return v == null || v.Contains("${") ? null : v;
+        }
+        static string Yml(string t, string k)
+        {
+            var m = Regex.Match(t, @"(?m)^" + k + @":\s*['""]?(.*?)['""]?\s*$");
+            return m.Success && m.Groups[1].Value != "" && !m.Groups[1].Value.Contains("${") ? m.Groups[1].Value : null;
+        }
+
+        public static object List(string kind)
+        {
+            var dir = Dir(kind);
+            var items = new List<object>();
+            if (Directory.Exists(dir))
+            {
+                foreach (var f in new DirectoryInfo(dir).GetFiles().OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    bool dis = f.Name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
+                    var bn = dis ? f.Name.Substring(0, f.Name.Length - 9) : f.Name;
+                    if (!bn.EndsWith(kind == "datapacks" ? ".zip" : ".jar", StringComparison.OrdinalIgnoreCase)) continue;
+                    var meta = kind == "datapacks" ? null : JarMeta(f.FullName);
+                    object nm = meta != null ? meta["name"] : null;
+                    items.Add(Jsn.D("file", f.Name, "name", nm ?? Path.GetFileNameWithoutExtension(bn),
+                        "version", meta != null ? meta["version"] : null, "desc", meta != null ? meta["desc"] : null,
+                        "enabled", !dis, "size", f.Length, "modified", Jsn.Ms(f.LastWriteTimeUtc), "dir", false));
+                }
+                if (kind == "datapacks")
+                    foreach (var d in new DirectoryInfo(dir).GetDirectories())
+                    {
+                        if (!File.Exists(Path.Combine(d.FullName, "pack.mcmeta"))) continue;
+                        bool dis = d.Name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
+                        items.Add(Jsn.D("file", d.Name, "name", dis ? d.Name.Substring(0, d.Name.Length - 9) : d.Name, "version", null, "desc", null,
+                            "enabled", !dis, "size", Fs.DirSize(d.FullName), "modified", Jsn.Ms(d.LastWriteTimeUtc), "dir", true));
+                    }
+            }
+            return Jsn.D("kind", kind, "items", items, "dir", Fs.Rel(dir), "loader", Loader(), "mc", McVersion());
+        }
+
+        public static void Op(string kind, string op, string file)
+        {
+            var dir = Dir(kind);
+            if (!Regex.IsMatch(file ?? "", @"^[^\\/:*?""<>|]+$") || file == "." || file == "..") throw new Fail("Invalid name.");
+            var p = Path.Combine(dir, file);
+            bool isDir = Directory.Exists(p);
+            if (!isDir && !File.Exists(p)) throw new Fail("Not found — it may have been removed.");
+            if (op == "delete") { if (isDir) Fs.DeleteDir(p); else File.Delete(p); return; }
+            if (op != "toggle") throw new Fail("Unknown action.");
+            var np = file.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase) ? p.Substring(0, p.Length - 9) : p + ".disabled";
+            if (File.Exists(np) || Directory.Exists(np)) throw new Fail("A file with that name already exists.");
+            if (isDir) Directory.Move(p, np); else File.Move(p, np);
+        }
+
+        static void Extract(ZipArchiveEntry e, string dest)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(dest));
+            e.ExtractToFile(dest, true);
+        }
+
+        static string Norm(ZipArchiveEntry e) { return e.FullName.Replace('\\', '/'); }
+
+        public static object Import(string kind, string tmp, string name)
+        {
+            var dir = Dir(kind);
+            var lname = name.ToLowerInvariant();
+            if (!Regex.IsMatch(name, @"^[^\\/:*?""<>|]{1,150}$")) throw new Fail("Invalid file name.");
+            var added = new List<string>();
+            string note = null;
+
+            if (lname.EndsWith(".jar"))
+            {
+                if (kind == "datapacks") throw new Fail("Datapacks are .zip files.");
+                var dest = Path.Combine(dir, name);
+                if (File.Exists(dest)) File.Delete(dest);
+                File.Move(tmp, dest);
+                added.Add(name);
+            }
+            else if (lname.EndsWith(".mrpack") || lname.EndsWith(".zip"))
+            {
+                bool moveWhole = false;
+                using (var za = ZipFile.OpenRead(tmp))
+                {
+                    if (za.GetEntry("modrinth.index.json") != null) return MrPack(za);
+                    if (kind == "datapacks")
+                    {
+                        if (za.GetEntry("pack.mcmeta") != null) moveWhole = true;
+                        else
+                        {
+                            var roots = za.Entries.Select(Norm).Where(n => Regex.IsMatch(n, @"^[^/]+/pack\.mcmeta$")).Select(n => n.Split('/')[0]).ToList();
+                            if (roots.Count == 0) throw new Fail("That zip isn't a datapack (no pack.mcmeta found).");
+                            foreach (var e in za.Entries)
+                            {
+                                var n = Norm(e);
+                                var root = n.Split('/')[0];
+                                if (!roots.Contains(root) || n.EndsWith("/")) continue;
+                                var dest = Path.GetFullPath(Path.Combine(dir, n.Replace('/', '\\')));
+                                if (!dest.StartsWith(dir + "\\", StringComparison.OrdinalIgnoreCase)) continue;
+                                Extract(e, dest);
+                            }
+                            added.AddRange(roots);
+                        }
+                    }
+                    else
+                    {
+                        // A whole server pack (has a mods/ or plugins/ folder): extract it into the server folder, configs included.
+                        string folder = kind + "/", prefix = null;
+                        foreach (var e in za.Entries)
+                        {
+                            var n = Norm(e);
+                            int i = n.IndexOf(folder, StringComparison.OrdinalIgnoreCase);
+                            if (i >= 0 && (i == 0 || n[i - 1] == '/') && n.EndsWith(".jar", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var pre = n.Substring(0, i);
+                                if (prefix == null || pre.Length < prefix.Length) prefix = pre;
+                            }
+                        }
+                        if (prefix != null)
+                        {
+                            int files = 0;
+                            foreach (var e in za.Entries)
+                            {
+                                var n = Norm(e);
+                                if (!n.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) || n.EndsWith("/")) continue;
+                                var rel = n.Substring(prefix.Length);
+                                var fn = Path.GetFileName(rel).ToLowerInvariant();
+                                if (fn == "aetheris.json" || fn == "aetheris.exe" || fn == "aetheris.exe.config") continue;
+                                Extract(e, Fs.Safe(rel));
+                                files++;
+                                if (rel.StartsWith(folder, StringComparison.OrdinalIgnoreCase) && rel.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) added.Add(Path.GetFileName(rel));
+                            }
+                            note = "Server pack extracted: " + files + " files, including configs.";
+                        }
+                        else
+                        {
+                            foreach (var e in za.Entries)
+                            {
+                                var n = Norm(e);
+                                if (!n.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) continue;
+                                var fn = Path.GetFileName(n);
+                                Extract(e, Path.Combine(dir, fn));
+                                added.Add(fn);
+                            }
+                            if (added.Count == 0) throw new Fail("No .jar files were found in that zip.");
+                        }
+                    }
+                }
+                if (moveWhole)
+                {
+                    var dest = Path.Combine(dir, name);
+                    if (File.Exists(dest)) File.Delete(dest);
+                    File.Move(tmp, dest);
+                    added.Add(name);
+                }
+            }
+            else throw new Fail("Upload a .jar, .zip or .mrpack file.");
+
+            Server.Log("Added " + added.Count + " " + kind + ": " + string.Join(", ", added.Take(8)) + (added.Count > 8 ? "…" : ""));
+            return Jsn.D("ok", true, "added", added, "note", note);
+        }
+
+        static object MrPack(ZipArchive za)
+        {
+            string json;
+            using (var r = new StreamReader(za.GetEntry("modrinth.index.json").Open(), Encoding.UTF8)) json = r.ReadToEnd();
+            var d = Jsn.S.DeserializeObject(json) as Dictionary<string, object>;
+            if (d == null) throw new Fail("Broken modpack index.");
+            var files = (d.ContainsKey("files") ? d["files"] as object[] : null) ?? new object[0];
+            int done = 0, skipped = 0, i = 0;
+            var root = App.Cfg.ServerDir;
+            Server.Log("Installing modpack " + (d.ContainsKey("name") ? d["name"] : "") + " (" + files.Length + " files)…");
+            foreach (var o in files)
+            {
+                i++;
+                var f = o as Dictionary<string, object>;
+                if (f == null) continue;
+                var env = f.ContainsKey("env") ? f["env"] as Dictionary<string, object> : null;
+                if (env != null && env.ContainsKey("server") && Convert.ToString(env["server"]) == "unsupported") { skipped++; continue; }
+                var dest = Fs.Safe(Convert.ToString(f["path"]));
+                string url = null;
+                foreach (var u in (f.ContainsKey("downloads") ? f["downloads"] as object[] : null) ?? new object[0])
+                    try { Net.Check(Convert.ToString(u)); url = Convert.ToString(u); break; } catch { }
+                if (url == null) { skipped++; continue; }
+                Net.DownloadTo(url, dest);
+                done++;
+                if (i % 10 == 0) Server.Log("Modpack: " + i + "/" + files.Length + " files…");
+            }
+            int over = 0;
+            foreach (var e in za.Entries)
+                foreach (var pre in new[] { "overrides/", "server-overrides/" })
+                {
+                    var n = Norm(e);
+                    if (!n.StartsWith(pre) || n.EndsWith("/")) continue;
+                    Extract(e, Fs.Safe(n.Substring(pre.Length)));
+                    over++;
+                }
+            Server.Log("Modpack installed: " + done + " downloads, " + over + " config files" + (skipped > 0 ? ", " + skipped + " client-only skipped" : "") + ".");
+            return Jsn.D("ok", true, "added", new string[0], "pack", d.ContainsKey("name") ? d["name"] : "Modpack",
+                "downloaded", done, "skipped", skipped, "deps", d.ContainsKey("dependencies") ? d["dependencies"] : null,
+                "note", "Installed " + done + " mods and " + over + " config files.");
+        }
+    }
+
+    // ------------------------------------------------------------------ bukkit.yml (Paper / Purpur / Spigot)
+    static class Bukkit
+    {
+        static readonly string[] Keys = {
+            "settings.allow-end", "settings.connection-throttle", "spawn-limits.monsters", "spawn-limits.animals",
+            "spawn-limits.water-animals", "spawn-limits.ambient", "ticks-per.autosave", "ticks-per.monster-spawns" };
+        static string FilePath { get { return Path.Combine(App.Cfg.ServerDir, "bukkit.yml"); } }
+
+        static int Find(List<string> lines, string sec, string key)
+        {
+            bool inSec = false;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var l = lines[i];
+                if (l.Trim() == "" || l.TrimStart().StartsWith("#")) continue;
+                if (!char.IsWhiteSpace(l[0])) { inSec = l.TrimEnd() == sec + ":"; continue; }
+                if (inSec && Regex.IsMatch(l, @"^\s+" + Regex.Escape(key) + @":")) return i;
+            }
+            return -1;
+        }
+
+        public static object Get()
+        {
+            if (!App.Configured || !File.Exists(FilePath)) return Jsn.D("exists", false, "values", new Dictionary<string, object>());
+            var lines = File.ReadAllLines(FilePath).ToList();
+            var vals = new Dictionary<string, object>();
+            foreach (var k in Keys)
+            {
+                var parts = k.Split(new[] { '.' }, 2);
+                int i = Find(lines, parts[0], parts[1]);
+                if (i >= 0) vals[k] = lines[i].Substring(lines[i].IndexOf(':') + 1).Trim().Trim('\'', '"');
+            }
+            return Jsn.D("exists", true, "values", vals);
+        }
+
+        public static void Set(Dictionary<string, string> ch)
+        {
+            if (!App.Configured || !File.Exists(FilePath)) throw new Fail("bukkit.yml wasn't found. Start a Paper, Purpur or Spigot server once first.");
+            var lines = File.ReadAllLines(FilePath).ToList();
+            foreach (var kv in ch)
+            {
+                if (!Keys.Contains(kv.Key)) throw new Fail("Unknown setting " + kv.Key);
+                if (!Regex.IsMatch(kv.Value ?? "", @"^[A-Za-z0-9.\-]{1,20}$")) throw new Fail("Invalid value for " + kv.Key);
+                var parts = kv.Key.Split(new[] { '.' }, 2);
+                int i = Find(lines, parts[0], parts[1]);
+                if (i < 0) continue;
+                lines[i] = lines[i].Substring(0, lines[i].IndexOf(':') + 1) + " " + kv.Value;
+            }
+            File.WriteAllLines(FilePath, lines, new UTF8Encoding(false));
+        }
+    }
+
     // ------------------------------------------------------------------ downloads
     static class Net
     {
         static readonly string[] Hosts = {
             "piston-meta.mojang.com", "piston-data.mojang.com", "launchermeta.mojang.com", "launcher.mojang.com",
-            "api.papermc.io", "fill.papermc.io", "fill-data.papermc.io", "api.purpurmc.org", "meta.fabricmc.net" };
+            "api.papermc.io", "fill.papermc.io", "fill-data.papermc.io", "api.purpurmc.org", "meta.fabricmc.net",
+            "api.modrinth.com", "cdn.modrinth.com", "github.com", "objects.githubusercontent.com", "raw.githubusercontent.com", "release-assets.githubusercontent.com" };
 
         class Wc : WebClient
         {
@@ -1197,7 +1632,7 @@ namespace Aetheris
         {
             Uri u;
             if (!Uri.TryCreate(url ?? "", UriKind.Absolute, out u) || u.Scheme != "https" || !Hosts.Contains(u.Host.ToLowerInvariant()))
-                throw new Fail("Downloads are only allowed from official Mojang / PaperMC / Purpur / Fabric servers.");
+                throw new Fail("Downloads are only allowed from Mojang, PaperMC, Purpur, Fabric, Modrinth or GitHub.");
             return u;
         }
 
@@ -1206,6 +1641,21 @@ namespace Aetheris
             var u = Check(url);
             try { using (var wc = Client()) return wc.DownloadString(u); }
             catch (WebException ex) { throw new Fail("Request failed: " + ex.Message); }
+        }
+
+        public static void DownloadTo(string url, string dest)
+        {
+            var u = Check(url);
+            Directory.CreateDirectory(Path.GetDirectoryName(dest));
+            var tmp = dest + ".part";
+            try
+            {
+                using (var wc = Client()) wc.DownloadFile(u, tmp);
+                if (File.Exists(dest)) File.Delete(dest);
+                File.Move(tmp, dest);
+            }
+            catch (WebException ex) { try { File.Delete(tmp); } catch { } throw new Fail("Download failed: " + ex.Message); }
+            catch { try { File.Delete(tmp); } catch { } throw; }
         }
 
         public static string Install(string url, string name)
@@ -1297,6 +1747,23 @@ namespace Aetheris
             Out.Write(hb, 0, hb.Length);
             Out.Write(body, 0, body.Length);
             Out.Flush();
+        }
+
+        public void SaveBody(string path, long max)
+        {
+            if (Len > max) throw new Fail("File is too large.");
+            using (var f = new FileStream(path, FileMode.Create))
+            {
+                var buf = new byte[65536]; long left = Len;
+                while (left > 0)
+                {
+                    int n = Body.Read(buf, 0, (int)Math.Min(buf.Length, left));
+                    if (n <= 0) break;
+                    f.Write(buf, 0, n); left -= n;
+                }
+                Len = left;
+                if (left > 0) { f.Close(); File.Delete(path); throw new Fail("Upload interrupted."); }
+            }
         }
 
         public void SendJson(int code, object o) { Send(code, "application/json; charset=utf-8", Encoding.UTF8.GetBytes(Jsn.S.Serialize(o)), null); }
@@ -1416,12 +1883,12 @@ namespace Aetheris
 
             if (r.Path == "/" || r.Path == "/index.html")
             {
-                r.Send(200, "text/html; charset=utf-8", Page(), "Content-Security-Policy: default-src 'self'; img-src 'self' data: https://mc-heads.net; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'\r\n");
+                r.Send(200, "text/html; charset=utf-8", Page(), "Content-Security-Policy: default-src 'self'; img-src 'self' data: blob: https://mc-heads.net https://cdn.modrinth.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'\r\n");
                 return;
             }
             if (!r.Path.StartsWith("/api/")) { r.Send(404, "text/plain", Encoding.UTF8.GetBytes("Not found"), null); return; }
             // custom header forces a CORS preflight, so other websites can't drive the panel
-            if (r.Path != "/api/download" && !r.H.ContainsKey("X-Aetheris")) { r.Send(403, "text/plain", Encoding.UTF8.GetBytes("Forbidden"), null); return; }
+            if (r.Path != "/api/download" && !(r.Path == "/api/icon" && r.Method == "GET") && !r.H.ContainsKey("X-Aetheris")) { r.Send(403, "text/plain", Encoding.UTF8.GetBytes("Forbidden"), null); return; }
 
             try
             {
@@ -1454,7 +1921,9 @@ namespace Aetheris
                 "address", c.Address, "jar", c.Jar, "dir", c.ServerDir,
                 "eula", Server.Eula(), "configured", App.Configured,
                 "playit", c.PlayitPath != "" || c.StartPlayit ? (object)Server.PlayitRunning() : null,
-                "snake", Server.SnakeRules(), "sysram", App.SysRamMb());
+                "snake", Server.SnakeRules(), "sysram", App.SysRamMb(), "sysfree", App.SysFreeMb(),
+                "icon", App.Configured && File.Exists(Path.Combine(c.ServerDir, "server-icon.png")),
+                "loader", Addons.Loader());
         }
 
         static object SaveConfig(Req r)
@@ -1668,17 +2137,7 @@ namespace Aetheris
                         if (Directory.Exists(p)) throw new Fail("A folder with that name exists.");
                         Directory.CreateDirectory(Path.GetDirectoryName(p));
                         var tmp = p + ".upload";
-                        using (var f = new FileStream(tmp, FileMode.Create))
-                        {
-                            var buf = new byte[65536]; long left = r.Len;
-                            while (left > 0)
-                            {
-                                int n = r.Body.Read(buf, 0, (int)Math.Min(buf.Length, left));
-                                if (n <= 0) break;
-                                f.Write(buf, 0, n); left -= n;
-                            }
-                            if (left > 0) { f.Close(); File.Delete(tmp); throw new Fail("Upload interrupted."); }
-                        }
+                        r.SaveBody(tmp, 8L << 30);
                         if (File.Exists(p)) File.Delete(p);
                         File.Move(tmp, p);
                         return Ok();
@@ -1715,6 +2174,61 @@ namespace Aetheris
                         }
                         else throw new Fail("Unknown file action.");
                         return Ok();
+                    }
+
+                case "/api/addons":
+                    if (r.Method == "POST") Addons.Op(r.S("kind"), r.S("op"), r.S("file"));
+                    return Addons.List(r.Method == "POST" ? r.S("kind") : r.Qs("kind"));
+
+                case "/api/addon-upload":
+                    {
+                        var kind = r.Qs("kind"); var name = Path.GetFileName(r.Qs("name") ?? "");
+                        var dir = Addons.Dir(kind);
+                        Directory.CreateDirectory(dir);
+                        var tmp = Path.Combine(dir, ".aetheris-upload-" + Guid.NewGuid().ToString("N") + ".tmp");
+                        r.SaveBody(tmp, 4L << 30);
+                        try { return Addons.Import(kind, tmp, name); }
+                        finally { try { if (File.Exists(tmp)) File.Delete(tmp); } catch { } }
+                    }
+
+                case "/api/addon-install":
+                    {
+                        var name = r.S("name");
+                        if (!Regex.IsMatch(name, @"^[^\\/:*?""<>|]{1,150}\.(jar|zip)$", RegexOptions.IgnoreCase)) throw new Fail("Invalid file name.");
+                        Net.DownloadTo(r.S("url"), Path.Combine(Addons.Dir(r.S("kind")), name));
+                        Server.Log("Installed " + name + " from Modrinth.");
+                        return Ok();
+                    }
+
+                case "/api/bukkit":
+                    if (r.Method == "POST")
+                    {
+                        var d = r.Json().ContainsKey("values") ? r.Json()["values"] as Dictionary<string, object> : null;
+                        if (d == null) throw new Fail("Nothing to save.");
+                        Bukkit.Set(d.ToDictionary(k => k.Key, k => k.Value is bool ? ((bool)k.Value ? "true" : "false") : Convert.ToString(k.Value, CultureInfo.InvariantCulture)));
+                    }
+                    return Bukkit.Get();
+
+                case "/api/icon":
+                    {
+                        if (!App.Configured) throw new Fail("Choose your server folder first.");
+                        var p = Path.Combine(c.ServerDir, "server-icon.png");
+                        if (r.Method == "DELETE") { if (File.Exists(p)) File.Delete(p); return Ok(); }
+                        if (r.Method == "POST")
+                        {
+                            var tmp = p + ".upload";
+                            r.SaveBody(tmp, 1 << 20);
+                            var b = File.ReadAllBytes(tmp);
+                            bool png = b.Length > 24 && b[0] == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G';
+                            int w = png ? (b[16] << 24 | b[17] << 16 | b[18] << 8 | b[19]) : 0, h = png ? (b[20] << 24 | b[21] << 16 | b[22] << 8 | b[23]) : 0;
+                            if (!png || w != 64 || h != 64) { File.Delete(tmp); throw new Fail("The server icon must be a 64×64 PNG."); }
+                            if (File.Exists(p)) File.Delete(p);
+                            File.Move(tmp, p);
+                            return Ok();
+                        }
+                        if (!File.Exists(p)) { r.Send(404, "text/plain", Encoding.UTF8.GetBytes("No icon"), null); return null; }
+                        r.Send(200, "image/png", File.ReadAllBytes(p), null);
+                        return null;
                     }
 
                 case "/api/download":

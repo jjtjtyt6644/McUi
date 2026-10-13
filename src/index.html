@@ -109,7 +109,7 @@ body[data-state=starting] .orb,body[data-state=stopping] .orb{background:#f59e0b
 .addr code{font-family:var(--mono);font-size:14px;background:#ffffff0a;border:1px solid var(--line2);border-radius:8px;padding:4px 10px;user-select:all}
 .hero-act{display:flex;flex-direction:column;align-items:stretch;gap:8px}
 .hero-act .row{justify-content:stretch}.hero-act .row .btn{flex:1}
-.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:16px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:16px}
 .stat{padding:16px 18px;display:flex;gap:13px;align-items:center;margin:0!important}
 .stat-ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:#8b5cf61a;color:#c4b5fd;flex:none}
 .stat-l{font-size:12px;color:var(--muted);font-weight:500}
@@ -233,7 +233,47 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
 .toast.err{border-left-color:var(--bad)}.toast.info{border-left-color:var(--acc)}
 .toast .btn{margin-left:auto}
 
-@media (max-width:1180px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.types{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* v2 refinements */
+.nbadge{margin-left:auto;font-size:11px;font-weight:700;background:#22c55e22;color:#86efac;border-radius:99px;padding:0 7px;line-height:18px}
+.ptitle{display:flex;flex-direction:column;min-width:0}
+.psub{color:var(--dim);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-ram{margin-top:10px;background:#ffffff06;border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.side-ram .row{gap:6px;font-size:12px}.side-ram b{color:var(--text);font-variant-numeric:tabular-nums}
+.lost{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,#3b1219,#2a1220);border-bottom:1px solid #7f1d1d;color:#fecaca;padding:9px 28px;font-size:13px}
+.lost .spin{width:14px;height:14px;border:2px solid #fca5a5;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite;flex:none}
+.hero-icon{width:72px;height:72px;border-radius:18px;image-rendering:pixelated;flex:none;border:2px solid #ef444466;box-shadow:0 0 0 4px #ef444414}
+body[data-state=online] .hero-icon{border-color:#22c55e88;box-shadow:0 0 0 4px #22c55e18}
+body[data-state=starting] .hero-icon,body[data-state=stopping] .hero-icon{border-color:#f59e0b88;box-shadow:0 0 0 4px #f59e0b18}
+.qa{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.perf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
+.perf .card{margin:0;padding:18px 20px 12px}
+.pv{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.pv .big{font-size:30px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+.pv .of{color:var(--muted);font-size:13px}
+.spark{height:70px;margin:10px -4px 0}
+.spark svg{width:100%;height:100%;display:block}
+.pfoot{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-top:4px}
+.toast .x{margin-left:6px;background:none;border:0;color:var(--dim);cursor:pointer;font-size:16px;line-height:1;padding:2px}
+.toast .x:hover{color:var(--text)}
+.mgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.mcard{display:flex;gap:14px;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.mcard:hover{border-color:var(--line2)}
+.mcard img,.mcard .mi{width:52px;height:52px;border-radius:12px;flex:none;background:#2a3043;object-fit:cover;display:grid;place-items:center;color:#c4b5fd}
+.mcard .t{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mcard .d{color:var(--muted);font-size:12.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:2px 0 8px}
+.mcard .s{font-size:11.5px;color:var(--dim)}
+.drop{position:fixed;inset:0;z-index:70;background:#0a0c12d9;display:grid;place-items:center;pointer-events:none}
+.drop div{border:2px dashed #8b5cf6;border-radius:20px;padding:50px 70px;text-align:center;font-size:18px;font-weight:650;background:#8b5cf610}
+.dz{border:1.5px dashed var(--line2);border-radius:12px;padding:14px 16px;color:var(--muted);font-size:13px;display:flex;gap:12px;align-items:center;margin-bottom:14px}
+.dz .ic{color:#a78bfa}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar input[type=search]{flex:1;min-width:180px}
+.vtag{font:11px var(--mono);color:var(--muted);background:#ffffff0a;border-radius:6px;padding:1px 6px;margin-left:6px}
+.icon-prev{width:64px;height:64px;border-radius:10px;image-rendering:pixelated;background:#1b1b1b;border:1px solid var(--line2);flex:none;display:grid;place-items:center;color:var(--dim)}
+.li.off .nm,.li.off .meta{opacity:.5}
+.card-h .seg{margin-left:auto}
+@media (max-width:1180px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.types{grid-template-columns:repeat(2,minmax(0,1fr))}.mgrid{grid-template-columns:1fr}}
+@media (max-width:760px){.perf{grid-template-columns:1fr}}
 @media (max-width:980px){.opts,.grid2{grid-template-columns:1fr}}
 @media (max-width:860px){
   .app{grid-template-columns:1fr}
@@ -299,6 +339,10 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
   <symbol id="i-mountain" viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></symbol>
   <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M17 8h1a4 4 0 1 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4ZM6 2v2M10 2v2M14 2v2"/></symbol>
   <symbol id="i-cmd" viewBox="0 0 24 24"><path d="m9 18 6-12"/></symbol>
+  <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M19.44 12.84a2 2 0 0 0 0-1.68l-.9-1.8A1.5 1.5 0 0 1 20 7.5V6a2 2 0 0 0-2-2h-1.5a1.5 1.5 0 0 1-1.36-1.46l-.9-1.8M4 6h3.5a1.5 1.5 0 0 0 1.5-1.5 2.5 2.5 0 0 1 5 0A1.5 1.5 0 0 0 15.5 6H18a2 2 0 0 1 2 2v2.5a1.5 1.5 0 0 0 1.5 1.5 2.5 2.5 0 0 1 0 5A1.5 1.5 0 0 0 20 18.5V20a2 2 0 0 1-2 2h-2.5a1.5 1.5 0 0 1-1.5-1.5 2.5 2.5 0 0 0-5 0A1.5 1.5 0 0 1 7.5 22H6a2 2 0 0 1-2-2v-2.5A1.5 1.5 0 0 0 2.5 16a2.5 2.5 0 0 1 0-5A1.5 1.5 0 0 0 4 9.5V8a2 2 0 0 1 2-2z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
 </svg>
 
 <div class="app">
@@ -310,8 +354,9 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
       <div class="nav-sep">Configure</div>
       <a href="#options" data-nav="options"><svg class="ic"><use href="#i-sliders"/></svg>Options</a>
       <a href="#gamerules" data-nav="gamerules"><svg class="ic"><use href="#i-book"/></svg>Game rules</a>
-      <a href="#players" data-nav="players"><svg class="ic"><use href="#i-users"/></svg>Players</a>
+      <a href="#players" data-nav="players"><svg class="ic"><use href="#i-users"/></svg>Players<span class="nbadge" id="navPlayers" hidden></span></a>
       <a href="#worlds" data-nav="worlds"><svg class="ic"><use href="#i-globe"/></svg>Worlds</a>
+      <a href="#mods" data-nav="mods"><svg class="ic"><use href="#i-puzzle"/></svg><span id="navMods">Mods &amp; plugins</span></a>
       <div class="nav-sep">Manage</div>
       <a href="#backups" data-nav="backups"><svg class="ic"><use href="#i-archive"/></svg>Backups</a>
       <a href="#software" data-nav="software"><svg class="ic"><use href="#i-box"/></svg>Software</a>
@@ -320,15 +365,16 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
     </nav>
     <div class="side-foot">
       <div class="row"><span class="dot" id="sideDot"></span><span id="sideState">Offline</span><span class="sp"></span><span id="sidePlayers"></span></div>
-      <div style="margin-top:6px">Close this window any time. Aetheris keeps running in the tray using almost no RAM.</div>
+      <div class="side-ram"><div class="row"><span>Server RAM</span><span class="sp"></span><b id="sideRam">—</b></div><div class="bar"><i id="sideRamBar"></i></div></div>
+      <div style="margin-top:8px">Close this window any time. Aetheris keeps running in the tray using almost no RAM.</div>
     </div>
   </aside>
 
   <main>
-    <div class="lost" id="lost" hidden>Can't reach Aetheris. Is it still running? Start <b>Aetheris.exe</b> again, then this page reconnects by itself.</div>
+    <div class="lost" id="lost" role="status" hidden><span class="spin"></span><div class="grow"><b>Connection to Aetheris lost.</b> <span id="lostTxt">Reconnecting…</span> If you closed Aetheris, start <b>Aetheris.exe</b> again and this page picks up by itself.</div><button class="btn sm ghost" id="lostRetry">Retry now</button></div>
     <header class="top">
       <button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu"><svg class="ic"><use href="#i-menu"/></svg></button>
-      <h1 id="pageTitle">Dashboard</h1>
+      <div class="ptitle"><h1 id="pageTitle">Dashboard</h1><span class="psub" id="pageSub"></span></div>
       <span class="sp"></span>
       <span class="pill" id="statePill"><span class="dot"></span><span>Offline</span></span>
       <button class="btn sm pw-main ok" data-power="main" id="topPower"><svg class="ic sm"><use href="#i-play"/></svg><span>Start</span></button>
@@ -349,11 +395,18 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
     <button class="btn warn" id="eulaBtn">I agree</button>
   </div>
   <div class="card hero">
-    <div class="orb"><svg class="ic lg"><use href="#i-power"/></svg></div>
+    <div class="orb" id="heroOrb"><svg class="ic lg"><use href="#i-power"/></svg></div>
+    <img class="hero-icon" id="heroIcon" alt="Server icon" hidden>
     <div class="hero-info">
       <div class="hero-state" id="heroState">Offline</div>
       <div class="motd" id="heroMotd"></div>
-      <div class="addr"><code id="addr">—</code><button class="icon-btn" id="copyAddr" title="Copy address" aria-label="Copy address"><svg class="ic sm"><use href="#i-copy"/></svg></button><span class="badge n" id="playitBadge" hidden>playit</span></div>
+      <div class="addr"><code id="addr">—</code><button class="icon-btn" id="copyAddr" title="Copy address" aria-label="Copy address"><svg class="ic sm"><use href="#i-copy"/></svg></button><span class="badge n" id="playitBadge" hidden>playit</span><span class="badge n" id="loaderBadge"></span></div>
+      <div class="qa">
+        <button class="btn ghost sm" id="qaBackup"><svg class="ic sm"><use href="#i-archive"/></svg>Back up now</button>
+        <a class="btn ghost sm" href="#console"><svg class="ic sm"><use href="#i-term"/></svg>Console</a>
+        <a class="btn ghost sm" href="#mods"><svg class="ic sm"><use href="#i-puzzle"/></svg>Mods</a>
+        <button class="btn ghost sm" id="qaFolder"><svg class="ic sm"><use href="#i-folder"/></svg>Open folder</button>
+      </div>
     </div>
     <div class="hero-act">
       <button class="btn big ok pw-main" data-power="main" id="bigPower"><svg class="ic"><use href="#i-play"/></svg><span>Start</span></button>
@@ -364,8 +417,23 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
     <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-users"/></svg></div><div><div class="stat-l">Players</div><div class="stat-v" id="stPlayers">0 / 20</div></div></div>
     <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-layers"/></svg></div><div><div class="stat-l">Version</div><div class="stat-v" id="stVersion">—</div></div></div>
     <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-clock"/></svg></div><div><div class="stat-l">Uptime</div><div class="stat-v" id="stUptime">—</div></div></div>
-    <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-cpu"/></svg></div><div><div class="stat-l">CPU</div><div class="stat-v" id="stCpu">—</div><div class="bar"><i id="cpuBar"></i></div></div></div>
-    <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-ram"/></svg></div><div><div class="stat-l">RAM</div><div class="stat-v" id="stRam">—</div><div class="bar"><i id="ramBar"></i></div></div></div>
+    <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-gauge"/></svg></div><div><div class="stat-l">PC memory free</div><div class="stat-v" id="stSys">—</div><div class="bar"><i id="sysBar"></i></div></div></div>
+  </div>
+  <div class="perf">
+    <div class="card">
+      <div class="card-h" style="margin-bottom:6px"><svg class="ic"><use href="#i-ram"/></svg><h3>Server RAM</h3><span class="badge n" id="ramPct">—</span></div>
+      <div class="pv"><span class="big" id="stRam">—</span><span class="of" id="stRamOf"></span></div>
+      <div class="bar" style="height:7px;margin-top:10px"><i id="ramBar"></i></div>
+      <div class="spark" id="ramSpark"></div>
+      <div class="pfoot"><span>Last few minutes</span><span id="ramPeak"></span></div>
+    </div>
+    <div class="card">
+      <div class="card-h" style="margin-bottom:6px"><svg class="ic"><use href="#i-cpu"/></svg><h3>Server CPU</h3><span class="badge n" id="cpuCores"></span></div>
+      <div class="pv"><span class="big" id="stCpu">—</span><span class="of">of total CPU</span></div>
+      <div class="bar" style="height:7px;margin-top:10px"><i id="cpuBar"></i></div>
+      <div class="spark" id="cpuSpark"></div>
+      <div class="pfoot"><span>Last few minutes</span><span id="cpuPeak"></span></div>
+    </div>
   </div>
   <div class="grid2">
     <div class="card"><div class="card-h"><svg class="ic"><use href="#i-users"/></svg><h3>Online players</h3><a href="#players">Manage</a></div><div id="dashPlayers" class="chips"></div></div>
@@ -423,6 +491,35 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
     <div class="wlist" id="wList"></div>
   </div>
   <div class="card"><div class="card-h"><svg class="ic"><use href="#i-up"/></svg><h3>Upload a world</h3></div><p class="sub" style="margin-top:-8px">Unzip your world, then copy its folder (the one that contains <code>level.dat</code>) into the server folder, or use <a href="#files">Files</a> to upload it. It will show up here so you can activate it.</p></div>
+</section>
+
+<!-- ============ MODS ============ -->
+<section data-page="mods" hidden>
+  <div class="banner warn" id="mVanilla" hidden><svg class="ic"><use href="#i-alert"/></svg><div class="grow"><b>Your server is running Vanilla.</b> Vanilla can't load mods or plugins (datapacks work). Install <b>Fabric</b> for mods or <b>Paper</b> for plugins.</div><a class="btn sm" href="#software">Open Software</a></div>
+  <div class="card">
+    <div class="card-h">
+      <div class="seg" id="mView" role="tablist"><button class="on" data-v="installed">Installed</button><button data-v="browse">Browse Modrinth</button></div>
+      <span class="sp"></span>
+      <div class="seg" id="mKind"><button data-k="mods">Mods</button><button data-k="plugins">Plugins</button><button data-k="datapacks">Datapacks</button></div>
+    </div>
+    <div id="mInstalled">
+      <div class="dz"><svg class="ic lg"><use href="#i-up"/></svg><div class="grow"><b style="color:var(--text)">Drop files anywhere on this page</b> or use Upload. Accepts <code>.jar</code> files, <code>.zip</code> files (loose jars or a whole server pack with configs) and Modrinth <code>.mrpack</code> modpacks.</div>
+        <label class="btn sm" style="cursor:pointer"><svg class="ic sm"><use href="#i-up"/></svg>Upload<input type="file" id="mUpload" accept=".jar,.zip,.mrpack" multiple hidden></label>
+        <button class="btn ghost sm" id="mFolder" title="Open folder in Explorer"><svg class="ic sm"><use href="#i-ext"/></svg>Folder</button></div>
+      <div id="mList"></div>
+      <p class="sub" id="mNote">Changes apply after a server restart.</p>
+    </div>
+    <div id="mBrowse" hidden>
+      <form class="toolbar" id="mSearch">
+        <input type="search" name="q" placeholder="Search Modrinth…" spellcheck="false">
+        <select name="loader" id="mLoader" aria-label="Loader"><option>fabric</option><option>quilt</option><option>forge</option><option>neoforge</option></select>
+        <input name="mc" id="mMc" placeholder="MC version" style="width:120px" aria-label="Minecraft version" spellcheck="false">
+        <button class="btn"><svg class="ic sm"><use href="#i-search"/></svg>Search</button>
+      </form>
+      <div class="mgrid" id="mResults"></div>
+      <p class="sub">Results only show versions for your Minecraft version and loader. Required dependencies (such as Fabric API) are installed automatically.</p>
+    </div>
+  </div>
 </section>
 
 <!-- ============ BACKUPS ============ -->
@@ -496,6 +593,8 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
     <div class="card">
       <div class="card-h"><svg class="ic"><use href="#i-restart"/></svg><h3>Automation</h3></div>
       <div class="opt"><div class="opt-l"><b>Restart after a crash</b><small>Max 3 times in 10 minutes.</small></div><span class="sw"><input type="checkbox" data-cfg="AutoRestart"><span></span></span></div>
+      <div class="opt"><div class="opt-l"><b>Connection watchdog</b><small>Checks every minute that players can still connect. If the server stops answering for 3 minutes, it's restarted.</small></div><span class="sw"><input type="checkbox" data-cfg="Watchdog"><span></span></span></div>
+      <div class="opt"><div class="opt-l"><b>Tray notifications</b><small>Pop-up when the server crashes or gets restarted.</small></div><span class="sw"><input type="checkbox" data-cfg="Notify"><span></span></span></div>
       <div class="opt"><div class="opt-l"><b>Start the server when Aetheris opens</b></div><span class="sw"><input type="checkbox" data-cfg="AutoStart"><span></span></span></div>
       <div class="opt"><div class="opt-l"><b>Run Aetheris when Windows starts</b><small>Starts quietly in the tray.</small></div><span class="sw"><input type="checkbox" id="c-autostart"><span></span></span></div>
       <div class="opt"><div class="opt-l"><b>Automatic backups</b><small>While the server is online.</small></div><select data-cfg="BackupHours"><option value="0">Off</option><option value="1">Every hour</option><option value="2">Every 2 hours</option><option value="3">Every 3 hours</option><option value="6">Every 6 hours</option><option value="12">Every 12 hours</option><option value="24">Daily</option></select></div>
@@ -506,7 +605,7 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
       <div class="card-h"><svg class="ic"><use href="#i-net"/></svg><h3>playit.gg &amp; address</h3></div>
       <div class="fld"><label class="f" for="c-Address">Public address</label><input id="c-Address" data-cfg="Address" placeholder="e.g. something.joinmc.link" spellcheck="false" style="width:100%"><small>The address from your playit.gg tunnel. It's shown on the dashboard so you can copy it for friends.</small></div>
       <div class="fld"><label class="f" for="c-PlayitPath">playit program (optional)</label><div class="row"><input id="c-PlayitPath" data-cfg="PlayitPath" placeholder="C:\Program Files\playit_gg\bin\playit.exe" spellcheck="false"><button type="button" class="btn ghost sm" data-browse="exe" data-for="c-PlayitPath">Browse…</button></div></div>
-      <div class="opt"><div class="opt-l"><b>Start playit with the server</b><small>Skipped if playit is already running, such as when it's installed as a Windows service.</small></div><span class="sw"><input type="checkbox" data-cfg="StartPlayit"><span></span></span></div>
+      <div class="opt"><div class="opt-l"><b>Start playit with the server</b><small>Auto-reconnects: if the tunnel closes while the server is online, Aetheris starts it again within a minute. Skipped if playit already runs as a Windows service.</small></div><span class="sw"><input type="checkbox" data-cfg="StartPlayit"><span></span></span></div>
     </div>
     <div class="card">
       <div class="card-h"><svg class="ic"><use href="#i-gauge"/></svg><h3>Panel</h3></div>
@@ -549,7 +648,9 @@ function toast(msg,type='ok',act){
   const t=document.createElement('div');t.className='toast '+type;
   t.innerHTML=`${ic(type==='err'?'alert':type==='info'?'info':'check')}<div>${esc(msg)}</div>`;
   if(act){const b=document.createElement('button');b.className='btn sm ghost';b.textContent=act.label;b.onclick=()=>{act.fn();t.remove()};t.append(b)}
-  $('#toasts').append(t);setTimeout(()=>t.remove(),type==='err'?7000:act?8000:3500);
+  const x=document.createElement('button');x.className='x';x.textContent='×';x.setAttribute('aria-label','Dismiss');x.onclick=()=>t.remove();t.append(x);
+  $('#toasts').append(t);while($('#toasts').childElementCount>4)$('#toasts').firstChild.remove();
+  setTimeout(()=>t.remove(),type==='err'?7000:act?8000:3500);
 }
 function modal({title,html='',ok='OK',cancel='Cancel',danger=false,wide=false,onOpen}){
   return new Promise(res=>{
@@ -586,14 +687,15 @@ function motdHtml(t){
 }
 
 /* ---------- navigation ---------- */
-const PAGES={dashboard:'Dashboard',console:'Console',options:'Server options',gamerules:'Game rules',players:'Players',worlds:'Worlds',backups:'Backups',software:'Software',files:'Files',settings:'Settings'};
+const PAGES={dashboard:'Dashboard',console:'Console',options:'Server options',gamerules:'Game rules',players:'Players',worlds:'Worlds',mods:'Mods & plugins',backups:'Backups',software:'Software',files:'Files',settings:'Settings'};
+const SUBS={dashboard:'Status, performance and quick actions',console:'Live server log and commands',options:'server.properties: gameplay, access, world and performance',gamerules:'Rules that change how the world behaves',players:'Online players, whitelist, operators and bans',worlds:'Switch, create and reset worlds',mods:'Install mods, plugins, datapacks and modpacks',backups:'Zip backups of your world',software:'Server type, version and Java',files:'Everything in your server folder',settings:'How Aetheris runs your server'};
 const LOAD={};
 function go(){
   let p=location.hash.slice(1)||'dashboard';if(!PAGES[p])p='dashboard';
   S.page=p;
   $$('[data-page]').forEach(s=>s.hidden=s.dataset.page!==p);
   $$('[data-nav]').forEach(a=>a.classList.toggle('on',a.dataset.nav===p));
-  $('#pageTitle').textContent=PAGES[p];document.title=PAGES[p]+' · Aetheris';
+  $('#pageTitle').textContent=PAGES[p];$('#pageSub').textContent=SUBS[p]||'';document.title=PAGES[p]+' · Aetheris';
   document.body.classList.remove('nav-open');
   $('#content').scrollTop=0;
   if(LOAD[p])LOAD[p]();
@@ -609,10 +711,21 @@ async function poll(){
   clearTimeout(S.pt);
   if(document.hidden&&S.polled)return;
   S.polled=true;
-  try{const s=await api('state');S.fails=0;$('#lost').hidden=true;renderState(s)}
-  catch(e){if(++S.fails>1)$('#lost').hidden=false}
-  S.pt=setTimeout(poll,/starting|stopping/.test(S.state.state)?1000:2500);
+  try{const s=await api('state');setLost(false);S.fails=0;renderState(s)}
+  catch(e){if(++S.fails>1)setLost(true)}
+  // reconnect with backoff (1s, 2s, 4s … max 10s) while the connection is down
+  const delay=S.fails>1?Math.min(10000,1000*2**(S.fails-2)):/starting|stopping/.test(S.state.state)?1000:2500;
+  if(S.fails>1)$('#lostTxt').textContent=`Reconnecting in ${Math.round(delay/1000)}s (attempt ${S.fails-1})…`;
+  S.pt=setTimeout(poll,delay);
 }
+function setLost(on){
+  const b=$('#lost');
+  if(on){b.hidden=false;return}
+  if(b.hidden)return;
+  b.hidden=true;toast('Reconnected to Aetheris.');
+  S.seq=-1;if(LOAD[S.page])LOAD[S.page]();consoleLoop();
+}
+$('#lostRetry').onclick=()=>{$('#lostTxt').textContent='Reconnecting…';poll()};
 function renderState(s){
   const prev=S.state;S.state=s;
   const [label,cls]=STL[s.state]||STL.offline;
@@ -636,11 +749,12 @@ function renderState(s){
   $('#stVersion').textContent=s.version||(s.jar?s.jar.replace(/\.jar$/i,''):'—');
   $('#stVersion').title=s.jar||'';
   $('#stUptime').textContent=s.state==='offline'?'—':fmtUp(s.uptime);
-  $('#stCpu').textContent=s.state==='offline'?'—':s.cpu.toFixed(1)+'%';
-  $('#cpuBar').style.width=(s.state==='offline'?0:Math.min(100,s.cpu))+'%';
-  $('#stRam').textContent=s.state==='offline'?'—':`${s.ram>=1024?(s.ram/1024).toFixed(1)+' GB':s.ram+' MB'}`;
-  $('#stRam').title=`Java process / ${s.xmx} MB max heap`;
-  $('#ramBar').style.width=(s.state==='offline'?0:Math.min(100,s.ram/s.xmx/1.15*100))+'%';
+  renderPerf(s);
+  const nb=$('#navPlayers');nb.hidden=!(s.state==='online'&&s.players.length);nb.textContent=s.players.length;
+  const lk=loaderKind(s.loader);$('#navMods').textContent=lk==='plugins'?'Plugins':lk==='mods'?'Mods':'Mods & plugins';
+  $('#loaderBadge').textContent=s.loader==='vanilla'?'Vanilla':s.loader;
+  if(s.icon!==prev.icon||S.iconV===undefined){S.iconV=Date.now()}
+  const hi=$('#heroIcon');hi.hidden=!s.icon;$('#heroOrb').hidden=!!s.icon;if(s.icon&&hi.dataset.v!=S.iconV){hi.src='/api/icon?v='+S.iconV;hi.dataset.v=S.iconV}
   $('#dashPlayers').innerHTML=s.players.length?s.players.map(p=>`<span class="chip">${avatar(p)}${esc(p)}</span>`).join(''):`<span class="muted">${s.state==='online'?'Nobody is online right now.':'The server is offline.'}</span>`;
   $('#setupCard').hidden=s.configured;
   $('#eulaCard').hidden=!s.configured||s.eula;
@@ -654,6 +768,45 @@ function renderState(s){
   }else if(S.page==='players'&&S.ptab==='online'&&prev.players&&prev.players.join()!==s.players.join())LOAD.players();
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){poll();consoleLoop()}});
+
+/* ---------- live performance ---------- */
+const gb=mb=>mb>=1024?(mb/1024).toFixed(2)+' GB':Math.round(mb)+' MB';
+S.hist={ram:[],cpu:[]};
+function loaderKind(l){return /fabric|quilt|forge|neoforge/.test(l)?'mods':/paper|purpur|spigot|bukkit|folia/.test(l)?'plugins':''}
+function spark(el,data,max,color){
+  const w=300,h=70,N=72;
+  if(data.length<2){el.innerHTML=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><line x1="0" y1="${h-1}" x2="${w}" y2="${h-1}" stroke="#ffffff14"/></svg>`;return}
+  const step=w/(N-1),off=w-(data.length-1)*step;
+  const pts=data.map((v,i)=>[off+i*step,h-3-(Math.min(v,max)/max)*(h-8)]);
+  const line='M'+pts.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L');
+  const id='g'+el.id;
+  el.innerHTML=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".32"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><line x1="0" y1="${h-1}" x2="${w}" y2="${h-1}" stroke="#ffffff14"/><path d="${line} L${pts[pts.length-1][0]} ${h} L${pts[0][0]} ${h} Z" fill="url(#${id})"/><path d="${line}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+}
+function renderPerf(s){
+  const off=s.state==='offline';
+  if(off)S.hist={ram:[],cpu:[]};else{S.hist.ram.push(s.ram);S.hist.cpu.push(s.cpu);if(S.hist.ram.length>72){S.hist.ram.shift();S.hist.cpu.shift()}}
+  const pct=off?0:Math.round(s.ram/s.xmx*100);
+  $('#stRam').textContent=off?'—':gb(s.ram);
+  $('#stRamOf').textContent=off?'Server is offline':`of ${gb(s.xmx)} allocated`;
+  $('#ramPct').textContent=off?'offline':pct+'%';$('#ramPct').className='badge '+(off?'n':pct>95?'r':pct>80?'y':'g');
+  $('#ramBar').style.width=Math.min(100,pct)+'%';
+  $('#stCpu').textContent=off?'—':s.cpu.toFixed(1)+'%';
+  $('#cpuBar').style.width=(off?0:Math.min(100,s.cpu))+'%';
+  $('#cpuCores').textContent=navigator.hardwareConcurrency?navigator.hardwareConcurrency+' threads':'';
+  const free=s.sysfree||0;$('#stSys').textContent=free?gb(free):'—';$('#stSys').title=`${gb(free)} free of ${gb(s.sysram)}`;
+  $('#sysBar').style.width=(s.sysram?100-free/s.sysram*100:0)+'%';
+  $('#sideRam').textContent=off?'—':`${gb(s.ram)} / ${gb(s.xmx)}`;$('#sideRamBar').style.width=Math.min(100,pct)+'%';
+  if(S.page==='dashboard'){
+    const rmax=Math.max(s.xmx*1.15,...S.hist.ram);
+    spark($('#ramSpark'),S.hist.ram,rmax,'#8b5cf6');
+    const cmax=Math.max(10,...S.hist.cpu)*1.2;
+    spark($('#cpuSpark'),S.hist.cpu,cmax,'#22d3ee');
+    $('#ramPeak').textContent=S.hist.ram.length?'Peak '+gb(Math.max(...S.hist.ram)):'';
+    $('#cpuPeak').textContent=S.hist.cpu.length?'Peak '+Math.max(...S.hist.cpu).toFixed(1)+'%':'';
+  }
+}
+$('#qaBackup').onclick=e=>busy(e.currentTarget,async()=>{toast('Creating backup…','info');await api('backups',{op:'create',label:''});toast('Backup created.','ok',{label:'View',fn:()=>location.hash='#backups'})});
+$('#qaFolder').onclick=()=>api('openfolder',{path:''}).catch(e=>toast(e.message,'err'));
 
 /* ---------- power ---------- */
 document.addEventListener('click',e=>{
@@ -734,6 +887,7 @@ $('#clearTerm').onclick=()=>{term.innerHTML=''};
 /* ---------- options (server.properties) ---------- */
 const OPT=[
  {t:'General',i:'sliders',items:[
+  {k:'_icon',ty:'icon',l:'Server icon',d:'Shown next to your server in the multiplayer list. Any image works and is resized to 64×64.'},
   {k:'motd',ty:'motd',l:'Server description (MOTD)',d:'Shown under your server name in the multiplayer list.',def:'A Minecraft Server'},
   {k:'max-players',ty:'num',l:'Max players',min:1,max:1000,def:'20'},
   {k:'gamemode',ty:'seg',l:'Game mode',o:['survival','creative','adventure','spectator'],def:'survival'},
@@ -759,12 +913,16 @@ const OPT=[
   {k:'level-type',ty:'sel',l:'World type',o:[['minecraft:normal','Default'],['minecraft:flat','Superflat'],['minecraft:large_biomes','Large biomes'],['minecraft:amplified','Amplified'],['minecraft:single_biome_surface','Single biome']],def:'minecraft:normal',d:'New worlds only.'},
   {k:'generate-structures',ty:'bool',l:'Generate structures',d:'Villages, temples, strongholds and so on.',def:'true'},
   {k:'allow-nether',ty:'bool',l:'Allow the Nether',def:'true'},
+  {k:'bk:settings.allow-end',ty:'bool',l:'Allow the End',d:'Players can travel to the End through End portals.',def:'true',bk:1},
+  {k:'spawn-monsters',ty:'bool',l:'Spawn monsters',d:'Hostile mobs spawn in the dark. Turn off for a peaceful-style world without changing difficulty.',def:'true'},
   {k:'max-world-size',ty:'num',l:'World border radius',min:1,max:29999984,def:'29999984',d:'In blocks.'},
  ]},
  {t:'Performance',i:'gauge',items:[
   {k:'view-distance',ty:'rng',l:'View distance',d:'Chunks sent to players. Lower = less lag on old PCs (6–8 is good).',min:3,max:32,def:'10'},
   {k:'simulation-distance',ty:'rng',l:'Simulation distance',d:'Chunks where mobs and crops tick. 4–6 saves a lot of CPU.',min:3,max:32,def:'10'},
   {k:'entity-broadcast-range-percentage',ty:'rng',l:'Entity render range (%)',min:10,max:500,step:10,def:'100'},
+  {k:'pause-when-empty-seconds',ty:'num',l:'Pause when empty (seconds)',d:'Freezes the world when nobody is online, saving CPU on old PCs. 0 = never (Minecraft 1.21.2+).',min:0,max:86400,def:'60'},
+  {k:'region-file-compression',ty:'seg',l:'World file compression',d:'lz4 saves faster but uses more disk space.',o:['deflate','lz4','none'],def:'deflate'},
   {k:'sync-chunk-writes',ty:'bool',l:'Synchronous chunk saving',d:'Off = faster on slow disks (small risk of chunk loss if the PC crashes).',def:'true'},
   {k:'network-compression-threshold',ty:'num',l:'Network compression threshold',d:'Bytes. 256 is standard. Use 512 if the server CPU is weak.',min:-1,max:65535,def:'256'},
   {k:'max-tick-time',ty:'num',l:'Watchdog timeout (ms)',d:'The server stops if one tick takes longer. -1 disables it.',min:-1,max:600000,def:'60000'},
@@ -773,17 +931,32 @@ const OPT=[
   {k:'server-port',ty:'num',l:'Server port',d:'Must match the local port of your playit.gg tunnel.',min:1,max:65535,def:'25565'},
   {k:'enable-status',ty:'bool',l:'Show as online in server list',def:'true'},
   {k:'enable-command-block',ty:'bool',l:'Command blocks',def:'false'},
+  {k:'function-permission-level',ty:'seg',l:'Function permission level',d:'Permission level for datapack functions.',o:['1','2','3','4'],def:'2'},
+  {k:'rate-limit',ty:'num',l:'Packet rate limit',d:'Kick players who send more packets per second than this. 0 = off.',min:0,max:10000,def:'0'},
+  {k:'accepts-transfers',ty:'bool',l:'Accept transfers',d:'Allow players to be sent here from other servers with /transfer.',def:'false'},
+  {k:'enable-query',ty:'bool',l:'Enable query',d:'Lets server-list websites read your player count (GameSpy4 protocol).',def:'false'},
   {k:'broadcast-console-to-ops',ty:'bool',l:'Show console commands to ops',def:'true'},
   {k:'log-ips',ty:'bool',l:'Log player IPs',def:'true'},
   {k:'resource-pack',ty:'text',l:'Resource pack URL',d:'Direct download link to a .zip (optional).',def:''},
   {k:'require-resource-pack',ty:'bool',l:'Require resource pack',def:'false'},
  ]},
+ {t:'Paper / Spigot',i:'puzzle',bkOnly:1,items:[
+  {k:'bk:spawn-limits.monsters',ty:'num',l:'Monster spawn limit',d:'Max hostile mobs per player area. Lower = less lag (vanilla 70).',min:0,max:500,def:'70'},
+  {k:'bk:spawn-limits.animals',ty:'num',l:'Animal spawn limit',min:0,max:500,def:'10'},
+  {k:'bk:spawn-limits.water-animals',ty:'num',l:'Water animal limit',min:0,max:500,def:'5'},
+  {k:'bk:spawn-limits.ambient',ty:'num',l:'Ambient (bats) limit',min:0,max:500,def:'15'},
+  {k:'bk:ticks-per.autosave',ty:'num',l:'Autosave interval (ticks)',d:'20 ticks = 1 second. 6000 = every 5 minutes.',min:0,max:720000,def:'6000'},
+  {k:'bk:settings.connection-throttle',ty:'num',l:'Connection throttle (ms)',d:'Minimum time between joins from the same IP. -1 turns it off.',min:-1,max:600000,def:'4000'},
+ ]},
 ];
 const OPTKEYS=new Set(OPT.flatMap(g=>g.items.map(i=>i.k)));
-const pv=(k,def)=>k in S.dirty?S.dirty[k]:(S.props&&k in S.props?S.props[k]:def);
+const orig=(k,def)=>k.startsWith('bk:')?(S.bk&&S.bk.values[k.slice(3)]!==undefined?S.bk.values[k.slice(3)]:def):(S.props&&k in S.props?S.props[k]:def);
+const pv=(k,def)=>k in S.dirty?S.dirty[k]:orig(k,def);
 function optCtl(o){
   const v=pv(o.k,o.def);
+  if(o.bk&&!(S.bk&&S.bk.exists))return `<span class="sw" title="Needs Paper, Purpur or Spigot"><input type="checkbox" checked disabled aria-label="${esc(o.l)}"><span></span></span>`;
   switch(o.ty){
+    case 'icon':return `<div class="row"><span class="icon-prev">${S.state.icon?`<img src="/api/icon?v=${S.iconV}" width="64" height="64" alt="" style="border-radius:10px;image-rendering:pixelated">`:ic('image','')}</span><div style="display:flex;flex-direction:column;gap:6px"><label class="btn ghost sm" style="cursor:pointer">${ic('up')}Upload<input type="file" accept="image/*" id="iconFile" hidden></label>${S.state.icon?`<button type="button" class="btn ghost sm danger-t" id="iconDel">${ic('trash')}Remove</button>`:''}</div></div>`;
     case 'bool':return `<span class="sw"><input type="checkbox" data-k="${o.k}" ${v==='true'?'checked':''} aria-label="${esc(o.l)}"><span></span></span>`;
     case 'seg':return `<div class="seg" data-k="${o.k}" role="radiogroup" aria-label="${esc(o.l)}">${o.o.map(x=>`<button type="button" role="radio" aria-checked="${x===v}" class="${x===v?'on':''}" data-v="${x}">${x}</button>`).join('')}</div>`;
     case 'num':return `<input type="number" data-k="${o.k}" value="${esc(v)}" min="${o.min}" max="${o.max}" aria-label="${esc(o.l)}">`;
@@ -793,20 +966,20 @@ function optCtl(o){
   }
 }
 function renderOptions(){
-  $('#optWrap').innerHTML=OPT.map(g=>`<div class="card"><div class="card-h">${ic(g.i,'')}<h3>${g.t}</h3></div>${g.items.map(o=>o.ty==='motd'?
+  $('#optWrap').innerHTML=OPT.filter(g=>!g.bkOnly||(S.bk&&S.bk.exists)).map(g=>`<div class="card"><div class="card-h">${ic(g.i,'')}<h3>${g.t}</h3></div>${g.items.map(o=>o.ty==='motd'?
     `<div class="opt block ${o.k in S.dirty?'dirty':''}" data-row="${o.k}"><div class="opt-l"><b>${o.l}</b><small>${o.d}</small></div>
      <textarea data-k="motd" rows="2" spellcheck="false" style="width:100%;font-family:var(--mono)" aria-label="MOTD">${esc(pv('motd',o.def))}</textarea>
      <div class="motd-tools" id="motdTools">${Object.entries(MC).map(([k,c])=>`<button type="button" data-c="${k}" style="background:${c}" title="§${k}" aria-label="Color ${k}"></button>`).join('')}<button type="button" data-c="l" title="Bold">B</button><button type="button" data-c="o" title="Italic" style="font-style:italic">I</button><button type="button" data-c="n" title="Underline" style="text-decoration:underline">U</button><button type="button" data-c="m" title="Strikethrough" style="text-decoration:line-through">S</button><button type="button" data-c="r" title="Reset" style="width:auto;padding:0 6px">reset</button></div>
-     <div class="motd-prev"><div class="pi"><svg width="28" height="28"><use href="#logo"/></svg></div><div><div class="nm">Minecraft Server</div><div id="motdPrev"></div></div></div></div>`
-   :`<div class="opt ${o.k in S.dirty?'dirty':''}" data-row="${o.k}"><div class="opt-l"><b>${o.l}</b>${o.d?`<small>${o.d}</small>`:''}<code>${o.k}</code></div>${optCtl(o)}</div>`).join('')}</div>`).join('');
+     <div class="motd-prev"><div class="pi">${S.state.icon?`<img src="/api/icon?v=${S.iconV}" width="40" height="40" alt="" style="border-radius:4px;image-rendering:pixelated">`:'<svg width="28" height="28"><use href="#logo"/></svg>'}</div><div><div class="nm">Minecraft Server</div><div id="motdPrev"></div></div></div></div>`
+   :`<div class="opt ${o.k in S.dirty?'dirty':''}" data-row="${o.k}"><div class="opt-l"><b>${o.l}</b>${o.bk&&!(S.bk&&S.bk.exists)?`<small>Needs Paper, Purpur or Spigot. Vanilla servers always have the End.</small>`:o.d?`<small>${o.d}</small>`:''}${o.ty==='icon'?'':`<code>${o.k.startsWith('bk:')?'bukkit.yml → '+o.k.slice(3):o.k}</code>`}</div>${optCtl(o)}</div>`).join('')}</div>`).join('');
   const others=Object.keys(S.props||{}).filter(k=>!OPTKEYS.has(k));
   $('#rawProps').innerHTML=others.length?others.map(k=>`<label for="rp-${esc(k)}" title="${esc(k)}">${esc(k)}</label><input id="rp-${esc(k)}" data-k="${esc(k)}" value="${esc(pv(k,''))}" spellcheck="false">`).join(''):'<span class="muted">The rest appear here after the server has started once.</span>';
   $('#motdPrev').innerHTML=motdHtml(pv('motd','A Minecraft Server'));
   updDirty();
 }
 function setDirty(k,v){
-  const orig=S.props&&k in S.props?S.props[k]:(OPT.flatMap(g=>g.items).find(o=>o.k===k)||{}).def;
-  if(v===orig)delete S.dirty[k];else S.dirty[k]=v;
+  const o0=orig(k,(OPT.flatMap(g=>g.items).find(o=>o.k===k)||{}).def);
+  if(v===o0)delete S.dirty[k];else S.dirty[k]=v;
   const row=$(`[data-row="${CSS.escape(k)}"]`);if(row)row.classList.toggle('dirty',k in S.dirty);
   updDirty();
 }
@@ -825,14 +998,33 @@ optsSec.addEventListener('click',e=>{
   const mc=e.target.closest('#motdTools button');
   if(mc){const ta=$('textarea[data-k=motd]');const a=ta.selectionStart,b=ta.selectionEnd;ta.setRangeText('§'+mc.dataset.c,a,b,'end');ta.focus();ta.dispatchEvent(new Event('input',{bubbles:true}))}
 });
+optsSec.addEventListener('change',async e=>{
+  if(e.target.id!=='iconFile')return;
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const img=await createImageBitmap(f);const c=document.createElement('canvas');c.width=c.height=64;
+    const x=c.getContext('2d');const sc=Math.max(64/img.width,64/img.height);const w=img.width*sc,h=img.height*sc;
+    x.imageSmoothingQuality='high';x.drawImage(img,(64-w)/2,(64-h)/2,w,h);
+    const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+    await api('icon',blob,'POST');S.iconV=Date.now();await poll();renderOptions();toast('Server icon updated. Players see it after a restart.');
+  }catch(er){toast(er.message||'That image could not be read.','err')}
+});
+optsSec.addEventListener('click',async e=>{
+  if(!e.target.closest('#iconDel'))return;
+  try{await api('icon',undefined,'DELETE');await poll();renderOptions();toast('Server icon removed.')}catch(er){toast(er.message,'err')}
+});
 $('#discardProps').onclick=()=>{S.dirty={};renderOptions()};
 $('#saveProps').onclick=e=>busy(e.currentTarget,async()=>{
-  await api('props',{props:S.dirty});S.dirty={};await LOAD.options(true);
+  const props={},bk={};
+  for(const [k,v] of Object.entries(S.dirty)){if(k.startsWith('bk:'))bk[k.slice(3)]=v;else props[k]=v}
+  if(Object.keys(props).length)await api('props',{props});
+  if(Object.keys(bk).length)await api('bukkit',{values:bk});
+  S.dirty={};await LOAD.options(true);
   if(S.state.state!=='offline')toast('Saved. Restart the server to apply.','ok',{label:'Restart now',fn:()=>power('restart')});else toast('Options saved.');
 });
 LOAD.options=async force=>{
   if(S.props&&Object.keys(S.dirty).length&&!force){renderOptions();return}
-  try{const r=await api('props');S.props=r.props;$('#propsNew').hidden=r.exists||!S.state.configured;renderOptions()}catch(e){toast(e.message,'err')}
+  try{const [r,b]=await Promise.all([api('props'),api('bukkit').catch(()=>({exists:false,values:{}}))]);S.props=r.props;S.bk=b;$('#propsNew').hidden=r.exists||!S.state.configured;renderOptions()}catch(e){toast(e.message,'err')}
 };
 
 /* ---------- game rules ---------- */
@@ -978,6 +1170,96 @@ $('#wReset').onclick=async()=>{
   const r=await modal({title:'Reset “'+(d.level||'world')+'”?',ok:'Reset world',danger:true,html:`<p>This <b>permanently deletes</b> the current world (overworld, Nether and End) and generates a fresh one on next start. Make a backup first if you want to keep it.</p><div class="fld"><label class="f">New seed</label><input name="seed" placeholder="Random" style="width:100%"></div><div class="fld"><label class="f">World type</label>${typeSel(d.type)}</div>`});
   if(!r)return;
   try{await api('worlds',{op:'reset',...r});toast('World reset. A new one generates when the server starts.');LOAD.worlds()}catch(e){toast(e.message,'err')}
+};
+
+/* ---------- mods / plugins / datapacks ---------- */
+S.mview='installed';
+function setMKind(k){S.mkind=k;$$('#mKind button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));$('#mLoader').hidden=k!=='mods'}
+LOAD.mods=async()=>{
+  if(!S.mkind)setMKind(loaderKind(S.state.loader)||'mods');
+  $('#mVanilla').hidden=S.state.loader!=='vanilla'||S.mkind==='datapacks';
+  if(S.mview==='browse'){if(!$('#mResults').childElementCount)mSearch();return}
+  try{
+    const d=await api('addons?kind='+S.mkind);S.mdata=d;
+    if(!$('#mMc').value)$('#mMc').value=d.mc||'';
+    if(/fabric|quilt|forge|neoforge/.test(d.loader))$('#mLoader').value=d.loader;
+    const label={mods:'mods',plugins:'plugins',datapacks:'datapacks'}[S.mkind];
+    $('#mList').innerHTML=d.items.length?'<div class="list">'+d.items.map(m=>`<div class="li ${m.enabled?'':'off'}"><span class="av">${ic(S.mkind==='datapacks'?'archive':'puzzle')}</span><div class="grow"><div class="nm">${esc(m.name)}${m.version?`<span class="vtag">${esc(m.version)}</span>`:''}${m.enabled?'':' <span class="badge n">disabled</span>'}</div><div class="meta" title="${esc(m.desc||'')}">${esc(m.file)} · ${fmtB(m.size)}${m.desc?' · '+esc(m.desc):''}</div></div><div class="acts"><span class="sw" title="${m.enabled?'Disable':'Enable'}"><input type="checkbox" data-mt="${esc(m.file)}" ${m.enabled?'checked':''} aria-label="Enable ${esc(m.name)}"><span></span></span><button class="icon-btn danger" data-md="${esc(m.file)}" title="Delete" aria-label="Delete ${esc(m.name)}">${ic('trash','')}</button></div></div>`).join('')+'</div>'
+      :`<div class="empty">${ic('puzzle','')}<div>No ${label} installed yet. Upload some, or find them on Modrinth.</div></div>`;
+    $('#mNote').textContent=`${d.items.length} ${label} in /${d.dir} · changes apply after a server restart.`;
+  }catch(e){toast(e.message,'err')}
+};
+$('#mView').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.mview=b.dataset.v;$$('#mView button').forEach(x=>x.classList.toggle('on',x===b));$('#mInstalled').hidden=S.mview!=='installed';$('#mBrowse').hidden=S.mview!=='browse';LOAD.mods()};
+$('#mKind').onclick=e=>{const b=e.target.closest('button');if(!b)return;setMKind(b.dataset.k);$('#mResults').innerHTML='';LOAD.mods()};
+$('#mList').addEventListener('change',async e=>{
+  const t=e.target.closest('[data-mt]');if(!t)return;
+  try{await api('addons',{kind:S.mkind,op:'toggle',file:t.dataset.mt});toast(t.checked?'Enabled. Restart to apply.':'Disabled. Restart to apply.');LOAD.mods()}catch(er){toast(er.message,'err');t.checked=!t.checked}
+});
+$('#mList').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-md]');if(!b)return;
+  if(!await confirmBox('Delete '+esc(b.dataset.md)+'?','It will be permanently removed from the server.',true,'Delete'))return;
+  busy(b,async()=>{await api('addons',{kind:S.mkind,op:'delete',file:b.dataset.md});toast('Deleted.');LOAD.mods()});
+});
+async function uploadAddons(files){
+  files=[...files].filter(f=>/\.(jar|zip|mrpack)$/i.test(f.name));
+  if(!files.length){toast('Drop .jar, .zip or .mrpack files.','err');return}
+  if(!S.mkind)setMKind(loaderKind(S.state.loader)||'mods');
+  for(const f of files){
+    try{
+      toast(`Uploading ${f.name}…${/\.mrpack$/i.test(f.name)?' Modpacks download all their mods, so this can take a few minutes.':''}`,'info');
+      const kind=/\.mrpack$/i.test(f.name)?'mods':S.mkind;
+      const r=await api(`addon-upload?kind=${kind}&name=${encodeURIComponent(f.name)}`,f,'PUT');
+      toast(r.note||`Added ${r.added.length} file${r.added.length===1?'':'s'}: ${r.added.slice(0,3).join(', ')}${r.added.length>3?'…':''}`);
+      if(r.deps){const loader=Object.keys(r.deps).find(k=>k!=='minecraft');if(loader)toast(`This pack needs Minecraft ${r.deps.minecraft} with ${loader.replace('-loader','')} ${r.deps[loader]}. Install it in Software.`,'info',{label:'Software',fn:()=>location.hash='#software'})}
+    }catch(er){toast(f.name+': '+er.message,'err')}
+  }
+  LOAD.mods();
+}
+$('#mUpload').onchange=e=>{const f=e.target.files;uploadAddons(f).finally(()=>e.target.value='')};
+$('#mFolder').onclick=()=>S.mdata&&api('openfolder',{path:S.mdata.dir}).catch(e=>toast('The folder is created when you add something.','info'));
+// drag & drop anywhere on the Mods page
+let dragN=0;
+addEventListener('dragenter',e=>{if(S.page!=='mods'||!e.dataTransfer.types.includes('Files'))return;e.preventDefault();if(dragN++===0){const d=document.createElement('div');d.className='drop';d.id='dropOv';d.innerHTML='<div>Drop to add to your server</div>';document.body.append(d)}});
+addEventListener('dragleave',()=>{if(--dragN<=0){dragN=0;$('#dropOv')?.remove()}});
+addEventListener('dragover',e=>{if(S.page==='mods')e.preventDefault()});
+addEventListener('drop',e=>{if(S.page!=='mods')return;e.preventDefault();dragN=0;$('#dropOv')?.remove();uploadAddons(e.dataTransfer.files)});
+
+function mLoaders(){return S.mkind==='plugins'?['paper','spigot','bukkit','purpur','folia']:S.mkind==='datapacks'?['datapack']:[$('#mLoader').value]}
+async function mSearch(){
+  const q=$('#mSearch').q.value.trim(),mc=$('#mMc').value.trim();
+  const f=S.mkind==='mods'?[['project_type:mod'],['categories:'+$('#mLoader').value],['server_side:required','server_side:optional']]
+    :S.mkind==='plugins'?[['categories:paper','categories:spigot','categories:bukkit','categories:purpur']]:[['categories:datapack']];
+  if(mc)f.push(['versions:'+mc]);
+  const url=`https://api.modrinth.com/v2/search?limit=20&index=${q?'relevance':'downloads'}&query=${encodeURIComponent(q)}&facets=${encodeURIComponent(JSON.stringify(f))}`;
+  $('#mResults').innerHTML=`<div class="empty" style="grid-column:1/-1"><div>Searching Modrinth…</div></div>`;
+  try{
+    const r=await fetchJ(url);
+    $('#mResults').innerHTML=r.hits.length?r.hits.map(h=>`<div class="mcard">${h.icon_url?`<img src="${esc(h.icon_url)}" alt="" loading="lazy">`:`<span class="mi">${ic('puzzle','lg')}</span>`}<div class="grow" style="min-width:0"><div class="t">${esc(h.title)}</div><div class="s">by ${esc(h.author)} · ${Intl.NumberFormat('en',{notation:'compact'}).format(h.downloads)} downloads</div><div class="d">${esc(h.description)}</div><button class="btn sm" data-mi="${esc(h.project_id)}" data-mn="${esc(h.title)}">${ic('down')}Install</button></div></div>`).join('')
+      :`<div class="empty" style="grid-column:1/-1">${ic('search','')}<div>Nothing found${mc?' for Minecraft '+esc(mc):''}. Try another search or version.</div></div>`;
+  }catch(e){$('#mResults').innerHTML='';toast('Modrinth search failed: '+e.message,'err')}
+}
+$('#mSearch').onsubmit=e=>{e.preventDefault();mSearch()};
+async function mrInstall(id,kind,loaders,mc,seen,depth){
+  if(seen.has(id)||depth>4)return[];seen.add(id);
+  let q=`https://api.modrinth.com/v2/project/${id}/version?loaders=${encodeURIComponent(JSON.stringify(loaders))}`;
+  if(mc)q+=`&game_versions=${encodeURIComponent(JSON.stringify([mc]))}`;
+  const vs=await fetchJ(q);
+  if(!vs.length)throw new Error(`no version for ${mc?'Minecraft '+mc+' / ':''}${loaders[0]}`);
+  const v=vs.find(x=>x.version_type==='release')||vs[0];
+  const file=v.files.find(x=>x.primary)||v.files[0];
+  await api('addon-install',{kind,url:file.url,name:file.filename});
+  const done=[file.filename];
+  for(const d of v.dependencies||[])
+    if(d.dependency_type==='required'&&d.project_id){try{done.push(...await mrInstall(d.project_id,kind,loaders,mc,seen,depth+1))}catch(er){toast('Dependency skipped: '+er.message,'err')}}
+  return done;
+}
+$('#mResults').onclick=e=>{
+  const b=e.target.closest('[data-mi]');if(!b)return;
+  busy(b,async()=>{
+    const files=await mrInstall(b.dataset.mi,S.mkind,mLoaders(),$('#mMc').value.trim(),new Set(),0);
+    b.innerHTML=ic('check')+'Installed';b.classList.add('ok');
+    toast(`Installed ${b.dataset.mn}${files.length>1?` + ${files.length-1} dependenc${files.length===2?'y':'ies'}`:''}. Restart to load it.`,'ok',S.state.state!=='offline'?{label:'Restart',fn:()=>power('restart')}:null);
+  }).then(()=>{if(b.classList.contains('ok'))b.disabled=true});
 };
 
 /* ---------- backups ---------- */

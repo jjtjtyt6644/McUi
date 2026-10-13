@@ -3,7 +3,7 @@
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $src  = Join-Path $root 'src'
-$out  = Join-Path $root 'dist'
+$out  = if ($env:AETHERIS_OUT) { $env:AETHERIS_OUT } else { Join-Path $root 'dist' }
 New-Item -ItemType Directory -Force $out | Out-Null
 
 # ---- icon (drawn with System.Drawing, written as a multi-size .ico) ----
