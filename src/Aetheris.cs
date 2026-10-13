@@ -23,36 +23,288 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]
 
 namespace Aetheris
 {
     static class Program
     {
+        public const string Version = "1.3.0";
+
         [STAThread]
         static void Main(string[] args)
         {
             bool trayOnly = args.Any(a => a == "--tray");
+            Instances.AutoReplace = args.Any(a => a == "--replace");   // replace an older running copy without asking
             bool created;
-            // one instance per install folder (so separate servers can each have their own panel)
-            var mutex = new Mutex(true, "Local\\AetherisPanel_" + AppDomain.CurrentDomain.BaseDirectory.ToLowerInvariant().GetHashCode().ToString("x"), out created);
-            App.Cfg = Config.Load();
-            if (!created) { App.OpenUi(); return; }
-
             ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072; // TLS 1.2
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            try { Http.Start(App.Cfg.Port); }
-            catch (Exception ex)
+            // one instance per install folder (so separate servers can each have their own panel)
+            var mutex = new Mutex(true, "Local\\AetherisPanel_" + AppDomain.CurrentDomain.BaseDirectory.ToLowerInvariant().GetHashCode().ToString("x"), out created);
+            App.Cfg = Config.Load();
+            bool startServerAfter = false;
+
+            if (!created)
             {
-                MessageBox.Show("Aetheris could not open panel port " + App.Cfg.Port + ".\n" + ex.Message +
-                    "\n\nEdit \"Port\" in aetheris.json and try again.", "Aetheris", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
+                // Aetheris from this folder is already running. If it's an older version, offer to replace it.
+                var other = Instances.Probe(App.Cfg.Port);
+                if (other == null || !Instances.IsOlder(other.Version)) { App.OpenUi(); return; }
+                if (!Instances.AskTakeover(other, true)) { App.OpenUi(); return; }
+                if (!Instances.Takeover(other, out startServerAfter)) return;
+                try { mutex.WaitOne(20000); } catch (AbandonedMutexException) { }
             }
+
+            int port = App.Cfg.Port;
+            for (int attempt = 0; ; attempt++)
+            {
+                try { Http.Start(port); break; }
+                catch (SocketException)
+                {
+                    var other = Instances.Probe(port);
+                    if (other != null && attempt == 0)
+                    {
+                        // another Aetheris (other folder or older version) owns the panel port
+                        var r = Instances.AskPortConflict(other);
+                        if (r == DialogResult.Cancel) { Instances.Open(port); return; }
+                        if (r == DialogResult.Yes)
+                        {
+                            bool srv;
+                            if (!Instances.Takeover(other, out srv)) return;
+                            if (srv && Instances.SameDir(other)) startServerAfter = true;
+                            continue;
+                        }
+                    }
+                    if (attempt > 25)
+                    {
+                        MessageBox.Show("Aetheris couldn't find a free panel port near " + App.Cfg.Port + ".", "Aetheris", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+                    port++;   // something else uses this port: try the next one
+                }
+            }
+            if (port != App.Cfg.Port) { App.Cfg.Port = port; try { App.Cfg.Save(); } catch { } }
+            if (startServerAfter) App.Cfg.AutoStartOnce = true;
             Application.Run(new Tray(!trayOnly && App.Cfg.OpenOnLaunch));
             GC.KeepAlive(mutex);
         }
+    }
+
+    // Finds / replaces other running copies of Aetheris.
+    class OtherInstance { public int Port; public string Version, Exe, Dir, State; public bool CanShutdown; }
+
+    static class Instances
+    {
+        public static bool AutoReplace;
+        static string Get(int port, string path, string body)
+        {
+            var req = (HttpWebRequest)WebRequest.Create("http://127.0.0.1:" + port + path);
+            req.Timeout = 4000; req.ReadWriteTimeout = 4000; req.Proxy = null;
+            req.Headers["X-Aetheris"] = "1";
+            if (body != null)
+            {
+                req.Method = "POST"; req.ContentType = "application/json";
+                var b = Encoding.UTF8.GetBytes(body);
+                using (var s = req.GetRequestStream()) s.Write(b, 0, b.Length);
+            }
+            try { using (var r = (HttpWebResponse)req.GetResponse()) using (var sr = new StreamReader(r.GetResponseStream())) return sr.ReadToEnd(); }
+            catch (WebException ex)
+            {
+                var r = ex.Response as HttpWebResponse;
+                if (r == null) throw;
+                using (r) using (var sr = new StreamReader(r.GetResponseStream())) return sr.ReadToEnd();
+            }
+        }
+
+        static Dictionary<string, object> J(string s) { try { return Jsn.S.DeserializeObject(s) as Dictionary<string, object>; } catch { return null; } }
+        static string Str(Dictionary<string, object> d, string k) { object v; return d != null && d.TryGetValue(k, out v) && v != null ? Convert.ToString(v) : ""; }
+
+        public static OtherInstance Probe(int port)
+        {
+            try
+            {
+                var v = J(Get(port, "/api/version", null));
+                if (v != null && v.ContainsKey("version"))
+                    return new OtherInstance { Port = port, Version = Str(v, "version"), Exe = Str(v, "exe"), Dir = Str(v, "dir"), State = Str(v, "state"), CanShutdown = true };
+                var st = J(Get(port, "/api/state", null));   // Aetheris 1.0 – 1.2 have no /api/version
+                if (st != null && st.ContainsKey("state"))
+                {
+                    int pid = Net2.ListenerPid(port);
+                    return new OtherInstance { Port = port, Version = "1.2 or older", Exe = pid > 0 ? Net2.ProcessPath(pid) : "", Dir = Str(st, "dir"), State = Str(st, "state") };
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        public static bool IsOlder(string v)
+        {
+            Version a, b;
+            if (!System.Version.TryParse(v ?? "", out a)) return true;
+            System.Version.TryParse(Program.Version, out b);
+            return a < b;
+        }
+
+        public static bool SameDir(OtherInstance o)
+        {
+            return string.Equals((o.Dir ?? "").TrimEnd('\\'), (App.Cfg.ServerDir ?? "").TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+        }
+
+        static string Describe(OtherInstance o)
+        {
+            return "Aetheris " + o.Version + (o.Exe != "" ? "\n" + o.Exe : "") + "\nServer: " + (o.State == "" ? "unknown" : o.State) + (o.Dir != "" ? " (" + o.Dir + ")" : "");
+        }
+
+        public static bool AskTakeover(OtherInstance o, bool sameFolder)
+        {
+            if (AutoReplace) return true;
+            return MessageBox.Show("An older copy of Aetheris is already running:\n\n" + Describe(o) +
+                "\n\nClose it and switch to Aetheris " + Program.Version + "?" +
+                (o.State != "offline" && o.State != "" ? "\n\nIts Minecraft server is saved and stopped safely first, then started again in the new version." : ""),
+                "Aetheris " + Program.Version, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+        }
+
+        public static DialogResult AskPortConflict(OtherInstance o)
+        {
+            if (AutoReplace) return DialogResult.Yes;
+            return MessageBox.Show("Another Aetheris is already using panel port " + o.Port + ":\n\n" + Describe(o) +
+                "\n\nYes: close that copy (its server is saved and stopped safely) and use this one.\nNo: keep both, and run this one on another port.\nCancel: just open the running copy.",
+                "Aetheris " + Program.Version, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+        }
+
+        public static void Open(int port) { try { using (Process.Start("http://127.0.0.1:" + port + "/")) { } } catch { } }
+
+        // Stops the other copy's server safely and closes it. Shows a small progress window meanwhile.
+        public static bool Takeover(OtherInstance o, out bool serverWasRunning)
+        {
+            bool running = o.State != "offline" && o.State != "";
+            serverWasRunning = running;
+            string error = null;
+            using (var f = new Form { Text = "Aetheris", FormBorderStyle = FormBorderStyle.FixedDialog, ControlBox = false, StartPosition = FormStartPosition.CenterScreen, Size = new Size(420, 130), TopMost = true, ShowInTaskbar = true })
+            {
+                var lbl = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 10f), Text = running ? "Saving and stopping the Minecraft server in the old Aetheris…" : "Closing the old Aetheris…" };
+                f.Controls.Add(lbl);
+                f.Shown += (s, e) => ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    try { error = DoTakeover(o, running); } catch (Exception ex) { error = ex.Message; }
+                    try { f.BeginInvoke(new Action(f.Close)); } catch { }
+                });
+                f.ShowDialog();
+            }
+            if (error != null) MessageBox.Show("Couldn't close the other Aetheris:\n" + error + "\n\nExit it from its tray icon and try again.", "Aetheris", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return error == null;
+        }
+
+        static string DoTakeover(OtherInstance o, bool running)
+        {
+            int pid = Net2.ListenerPid(o.Port);
+            if (o.CanShutdown) Get(o.Port, "/api/shutdown", "{}");
+            else
+            {
+                if (running)
+                {
+                    Get(o.Port, "/api/power", "{\"action\":\"stop\"}");
+                    var until = DateTime.Now.AddSeconds(120);
+                    while (DateTime.Now < until)
+                    {
+                        Thread.Sleep(1000);
+                        var st = J(Get(o.Port, "/api/state", null));
+                        if (st != null && Str(st, "state") == "offline") break;
+                    }
+                }
+                if (pid > 0)
+                    try { using (var p = Process.GetProcessById(pid)) if (p.ProcessName.StartsWith("Aetheris", StringComparison.OrdinalIgnoreCase)) p.Kill(); } catch { }
+            }
+            var end = DateTime.Now.AddSeconds(130);
+            while (Net2.ListenerPid(o.Port) != 0)
+            {
+                if (DateTime.Now > end) return "it didn't close in time.";
+                Thread.Sleep(500);
+            }
+            Thread.Sleep(500);
+            return null;
+        }
+    }
+
+    // Low-level Windows helpers: who listens on a port, process paths, Ctrl+C, job objects.
+    static class Net2
+    {
+        [DllImport("iphlpapi.dll")] static extern uint GetExtendedTcpTable(IntPtr tbl, ref int size, bool order, int af, int cls, uint reserved);
+        [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+        [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, int flags, StringBuilder sb, ref int len);
+
+        // PID of the process listening on a TCP port (IPv4 or IPv6), or 0
+        public static int ListenerPid(int port)
+        {
+            foreach (int af in new[] { 2, 23 })
+            {
+                int size = 0;
+                GetExtendedTcpTable(IntPtr.Zero, ref size, false, af, 3, 0);
+                if (size <= 0) continue;
+                IntPtr buf = Marshal.AllocHGlobal(size);
+                try
+                {
+                    if (GetExtendedTcpTable(buf, ref size, false, af, 3, 0) != 0) continue;
+                    int n = Marshal.ReadInt32(buf), rowSize = af == 2 ? 24 : 56, portOff = af == 2 ? 8 : 20, pidOff = af == 2 ? 20 : 52;
+                    for (int i = 0; i < n; i++)
+                    {
+                        IntPtr row = IntPtr.Add(buf, 4 + i * rowSize);
+                        int lp = Marshal.ReadInt32(row, portOff);
+                        if ((((lp & 0xFF) << 8) | ((lp >> 8) & 0xFF)) == port) return Marshal.ReadInt32(row, pidOff);
+                    }
+                }
+                finally { Marshal.FreeHGlobal(buf); }
+            }
+            return 0;
+        }
+
+        public static string ProcessPath(int pid)
+        {
+            IntPtr h = OpenProcess(0x1000, false, pid);
+            if (h == IntPtr.Zero) return "";
+            try { var sb = new StringBuilder(1024); int len = sb.Capacity; return QueryFullProcessImageName(h, 0, sb, ref len) ? sb.ToString() : ""; }
+            finally { CloseHandle(h); }
+        }
+
+        [DllImport("kernel32.dll")] static extern bool AttachConsole(int pid);
+        [DllImport("kernel32.dll")] static extern bool FreeConsole();
+        [DllImport("kernel32.dll")] static extern bool SetConsoleCtrlHandler(IntPtr h, bool add);
+        [DllImport("kernel32.dll")] static extern bool GenerateConsoleCtrlEvent(uint ev, uint group);
+        static readonly object ConsoleLock = new object();
+
+        // Sends Ctrl+C to a console program: Minecraft saves the world and shuts down, like pressing Ctrl+C in its window.
+        public static bool SendCtrlC(int pid)
+        {
+            lock (ConsoleLock)
+            {
+                FreeConsole();
+                if (!AttachConsole(pid)) return false;
+                SetConsoleCtrlHandler(IntPtr.Zero, true);   // don't stop ourselves
+                bool ok = GenerateConsoleCtrlEvent(0, 0);
+                Thread.Sleep(300);
+                FreeConsole();
+                ThreadPool.QueueUserWorkItem(_ => { Thread.Sleep(3000); lock (ConsoleLock) SetConsoleCtrlHandler(IntPtr.Zero, false); });
+                return ok;
+            }
+        }
+
+        public static void KillTree(int pid)
+        {
+            try
+            {
+                using (var p = Process.Start(new ProcessStartInfo("taskkill", "/PID " + pid + " /T /F") { CreateNoWindow = true, UseShellExecute = false }))
+                    p.WaitForExit(10000);
+            }
+            catch { }
+            try { using (var p = Process.GetProcessById(pid)) p.Kill(); } catch { }
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr CreateJobObject(IntPtr attr, string name);
+        [DllImport("kernel32.dll")] public static extern bool AssignProcessToJobObject(IntPtr job, IntPtr proc);
+        [DllImport("kernel32.dll")] public static extern bool TerminateJobObject(IntPtr job, uint code);
+        public static void Close(IntPtr h) { if (h != IntPtr.Zero) CloseHandle(h); }
     }
 
     class Fail : Exception { public Fail(string m) : base(m) { } }
@@ -93,6 +345,7 @@ namespace Aetheris
         public bool Watchdog { get; set; }
         public bool Notify { get; set; }
         public List<TaskDef> Tasks { get; set; }
+        [ScriptIgnore] public bool AutoStartOnce;
 
         public Config()
         {
@@ -196,7 +449,7 @@ namespace Aetheris
         {
             trimTimer = new System.Threading.Timer(_ => Trim(), null, 5000, Timeout.Infinite);
             tickTimer = new System.Threading.Timer(Tick, null, 60000, 60000);
-            if (Cfg.AutoStart) ThreadPool.QueueUserWorkItem(_ => Server.Start());
+            if (Cfg.AutoStart || Cfg.AutoStartOnce) ThreadPool.QueueUserWorkItem(_ => { var e = Server.Start(); if (e != null) Server.Log(e); });
         }
 
         // Called on every panel request; once the panel goes quiet, trim our RAM back to ~2 MB.
@@ -349,9 +602,11 @@ namespace Aetheris
         readonly NotifyIcon ni;
         readonly MenuItem miStart, miStop, miRestart;
         bool exiting;
+        public static Tray Instance;
 
         public Tray(bool open)
         {
+            Instance = this;
             App.Ui = new Control();
             App.Ui.CreateControl();
             var h = App.Ui.Handle;
@@ -407,6 +662,8 @@ namespace Aetheris
             miStop.Enabled = miRestart.Enabled = st == "online" || st == "starting";
         }
 
+        public void RequestExit() { try { App.Ui.BeginInvoke(new Action(Exit)); } catch { } }
+
         void Exit()
         {
             if (exiting) return;
@@ -433,6 +690,7 @@ namespace Aetheris
     {
         public static readonly object L = new object();
         static Process proc, playit;
+        static IntPtr job = IntPtr.Zero;
         static StreamWriter stdin;
         static readonly List<string> lines = new List<string>();
         static long baseSeq;
@@ -571,13 +829,15 @@ namespace Aetheris
                 if (!App.Configured) return "Choose your server folder in Settings first.";
                 if (c.Jar == "" || !File.Exists(Path.Combine(c.ServerDir, c.Jar))) return "No server jar selected. Pick or install one in Software.";
                 if (!Eula()) return "You need to accept the Minecraft EULA before starting.";
+                var ext = External();
+                if (ext != null) return "A Minecraft server is already running outside Aetheris on port " + ext["port"] + " (" + ext["name"] + ", PID " + ext["pid"] + "). Stop it from the Dashboard first.";
 
                 var a = new StringBuilder();
                 a.Append("-Xms").Append(c.MinRam).Append("M -Xmx").Append(c.MaxRam).Append("M ");
                 if (c.AikarFlags) a.Append(AikarFlags(c.MaxRam)).Append(' ');
                 a.Append("-Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8 -Dfile.encoding=UTF-8 -Dterminal.jline=false -Dterminal.ansi=true ");
                 if (c.JvmArgs != "") a.Append(c.JvmArgs).Append(' ');
-                a.Append("-jar \"").Append(c.Jar).Append("\" nogui");
+                a.Append("-jar \"").Append(Path.Combine(c.ServerDir, c.Jar)).Append("\" nogui");
 
                 var psi = new ProcessStartInfo(c.JavaPath, a.ToString())
                 {
@@ -601,6 +861,10 @@ namespace Aetheris
                     Log("Could not launch Java: " + ex.Message + ". Check the Java path in Settings.");
                     return "Could not launch Java (" + ex.Message + "). Check the Java path in Settings.";
                 }
+                // put Java (and anything it starts) in a job, so Kill always takes down the whole process tree
+                Net2.Close(job);
+                job = Net2.CreateJobObject(IntPtr.Zero, null);
+                if (job != IntPtr.Zero && !Net2.AssignProcessToJobObject(job, p.Handle)) { Net2.Close(job); job = IntPtr.Zero; }
                 stdin = new StreamWriter(p.StandardInput.BaseStream, new UTF8Encoding(false)) { AutoFlush = true, NewLine = "\n" };
                 p.BeginOutputReadLine();
                 p.BeginErrorReadLine();
@@ -648,8 +912,15 @@ namespace Aetheris
         {
             var p = (Process)sender;
             bool restart = false, crashRestart = false;
-            // drain remaining output first (outside the lock — output handlers need it)
-            try { p.WaitForExit(); } catch { }
+            // drain remaining output first (outside the lock — output handlers need it), but never wait forever:
+            // a leftover child process can keep the output pipe open
+            try
+            {
+                var drain = new Thread(() => { try { p.WaitForExit(); } catch { } }) { IsBackground = true };
+                drain.Start();
+                drain.Join(4000);
+            }
+            catch { }
             lock (L)
             {
                 if (p != proc) return;
@@ -671,6 +942,7 @@ namespace Aetheris
                     Alert("Minecraft server stopped", "The server stopped unexpectedly (exit code " + code + ").");
                 }
                 restartPending = false;
+                if (job != IntPtr.Zero) { Net2.TerminateJobObject(job, 1); Net2.Close(job); job = IntPtr.Zero; }   // clean up stray children
                 try { p.Dispose(); } catch { }
             }
             if (!restart) StopPlayit();
@@ -706,26 +978,66 @@ namespace Aetheris
                 Send("stop", false);
             }
             Fire();
-            ThreadPool.QueueUserWorkItem(_ =>
-            {
-                try
-                {
-                    if (!p.WaitForExit(90000)) { Log("Server did not stop within 90 seconds — force killing it."); p.Kill(); }
-                }
-                catch { }
-            });
+            ThreadPool.QueueUserWorkItem(_ => StopWatch(p, 90000));
+            return null;
+        }
+
+        // Makes sure a stop always finishes: kill after the timeout, and clean up if the exit event never comes.
+        static void StopWatch(Process p, int ms)
+        {
+            bool exited = false;
+            try { exited = p.WaitForExit(ms); } catch { exited = true; }
+            lock (L) { if (proc != p) return; }
+            if (!exited) { Log("The server didn't stop within " + (ms / 1000) + " seconds — force killing it."); KillProc(p); }
+            Thread.Sleep(10000);
+            lock (L) { if (proc != p) return; }
+            Log("The server process is gone but never reported back — cleaning up.");
+            KillProc(p);
+            OnExit(p, EventArgs.Empty);
+        }
+
+        static void KillProc(Process p)
+        {
+            if (job != IntPtr.Zero) Net2.TerminateJobObject(job, 1);
+            try { p.Kill(); } catch { }
+            try { Net2.KillTree(p.Id); } catch { }
+        }
+
+        // A Minecraft server listening on our server port that Aetheris didn't start (e.g. left over, or started from cmd).
+        public static Dictionary<string, object> External()
+        {
+            lock (L) if (proc != null) return null;
+            if (!App.Configured) return null;
+            int port;
+            if (!int.TryParse(Props.Get("server-port", "25565"), out port)) port = 25565;
+            int pid = Net2.ListenerPid(port);
+            if (pid <= 4 || pid == Process.GetCurrentProcess().Id) return null;
+            var path = Net2.ProcessPath(pid);
+            return Jsn.D("pid", pid, "port", port, "name", path != "" ? Path.GetFileName(path) : "PID " + pid, "path", path);
+        }
+
+        public static string StopExternal(int pid, bool force)
+        {
+            var ext = External();
+            if (ext == null || (int)ext["pid"] != pid) return "That server isn't running any more.";
+            if (force) { Log("Force killing outside server (PID " + pid + ")."); Net2.KillTree(pid); return null; }
+            Log("Asking the outside server (PID " + pid + ") to save and stop (Ctrl+C)…");
+            if (!Net2.SendCtrlC(pid)) return "Couldn't send a stop signal to it (it has no console). Use Force kill, or close its window yourself.";
             return null;
         }
 
         public static void ForceRestart(string why)
         {
+            Process p;
             lock (L)
             {
                 if (proc == null) return;
                 stopRequested = false; restartPending = true; State = "stopping";
                 Log(why);
-                try { proc.Kill(); } catch { }
+                p = proc;
             }
+            KillProc(p);
+            ThreadPool.QueueUserWorkItem(_ => StopWatch(p, 5000));
             Alert("Minecraft server restarted", why.Replace("Watchdog: ", ""));
             Fire();
         }
@@ -775,19 +1087,24 @@ namespace Aetheris
             lock (L) p = proc;
             if (p == null) return;
             Stop(false);
-            try { if (!p.WaitForExit(ms)) p.Kill(); } catch { }
+            try { if (!p.WaitForExit(ms)) KillProc(p); } catch { }
             Thread.Sleep(300);
         }
 
         public static string Kill()
         {
+            Process p;
             lock (L)
             {
                 if (proc == null) return "The server is not running.";
                 stopRequested = true; restartPending = false;
-                Log("Force killing server process (unsaved progress may be lost).");
-                try { proc.Kill(); } catch (Exception ex) { return ex.Message; }
+                State = "stopping";
+                Log("Force killing the server (unsaved progress may be lost).");
+                p = proc;
             }
+            Fire();
+            KillProc(p);
+            ThreadPool.QueueUserWorkItem(_ => StopWatch(p, 5000));
             return null;
         }
 
@@ -1992,7 +2309,7 @@ namespace Aetheris
                 "playit", c.PlayitPath != "" || c.StartPlayit ? (object)Server.PlayitRunning() : null,
                 "snake", Server.SnakeRules(), "sysram", App.SysRamMb(), "sysfree", App.SysFreeMb(),
                 "icon", App.Configured && File.Exists(Path.Combine(c.ServerDir, "server-icon.png")),
-                "loader", Addons.Loader(), "pending", Server.Pending(), "tasks", c.Tasks.Count(t => t.Enabled));
+                "loader", Addons.Loader(), "pending", Server.Pending(), "external", Server.External(), "aetheris", Program.Version, "tasks", c.Tasks.Count(t => t.Enabled));
         }
 
         static object SaveConfig(Req r)
@@ -2253,6 +2570,22 @@ namespace Aetheris
                             }
                         }
                         else throw new Fail("Unknown file action.");
+                        return Ok();
+                    }
+
+                case "/api/version":
+                    return Jsn.D("version", Program.Version, "exe", Application.ExecutablePath, "dir", c.ServerDir, "state", Server.State);
+
+                case "/api/shutdown":
+                    if (r.Method != "POST") throw new Fail("Use POST.");
+                    if (Tray.Instance != null) Tray.Instance.RequestExit();
+                    return Ok();
+
+                case "/api/external":
+                    {
+                        int pid; int.TryParse(r.S("pid"), out pid);
+                        var err = Server.StopExternal(pid, r.S("action") == "kill");
+                        if (err != null) throw new Fail(err);
                         return Ok();
                     }
 

@@ -26,6 +26,10 @@ A lightweight Minecraft server panel for Windows. It gives you Aternos-style con
 
 Nothing to install: it uses the .NET Framework that's already built into Windows 10 and 11.
 
+## Updating
+
+Just run the new `Aetheris.exe`. If an older copy is still running, Aetheris offers to switch over. It saves and stops the old copy's server, closes the old copy, then starts the server again in the new version. To do this without a prompt (for example from a script), run `Aetheris.exe --replace`.
+
 ## Low resource use
 
 - The panel window is just a view. **Close it any time**, and the server keeps running.

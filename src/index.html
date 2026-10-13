@@ -417,6 +417,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <span class="pill" id="statePill"><span class="dot"></span><span>Offline</span></span>
       <button class="btn sm pw-main ok" data-power="main" id="topPower"><svg class="ic sm"><use href="#i-play"/></svg><span>Start</span></button>
     </header>
+    <div class="restart" id="extBar" role="alert" hidden style="background:linear-gradient(90deg,#2b1020,#1d1225);border-color:#831843;color:#fbcfe8"><svg class="ic" style="color:#f472b6"><use href="#i-alert"/></svg><div class="grow"><b>A Minecraft server is already running outside Aetheris</b> <span id="extWhat"></span>. Aetheris can't control a server it didn't start, and a second server can't start while this one uses the port.</div><button class="btn sm ghost" id="extStop">Stop it safely</button><button class="btn sm danger" id="extKill">Force kill</button></div>
     <div class="restart" id="restartBar" role="status" hidden><svg class="ic"><use href="#i-restart"/></svg><div class="grow"><b>Restart needed.</b> <span id="restartWhat"></span> will apply after the server restarts.</div><button class="btn sm warn" data-power="restart"><svg class="ic sm"><use href="#i-restart"/></svg>Restart now</button></div>
 
     <div class="content" id="content">
@@ -687,7 +688,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>Start</td><td>Launches Java with your RAM and Java settings.</td></tr>
 <tr><td>Stop</td><td>Sends <code>stop</code>, which saves every world and shuts down cleanly. Always safe.</td></tr>
 <tr><td>Restart</td><td>Stop, then Start.</td></tr>
-<tr><td>Kill</td><td>Ends the Java process instantly <b>without saving</b>. Use it only if the server is frozen and Stop doesn't work. You lose progress since the last autosave (every 5 minutes by default).</td></tr>
+<tr><td>Force stop</td><td>Replaces “Stopping…” if a stop takes longer than 15 seconds. Same as Kill.</td></tr>
+<tr><td>Kill</td><td>Ends the Java process (and anything it started) instantly <b>without saving</b>. Use it only if the server is frozen and Stop doesn't work. You lose progress since the last autosave (every 5 minutes by default).</td></tr>
 <tr><td>Back up now</td><td>Makes a zip backup of the current world. See <a href="#guide" data-g="g-backups">Backups</a>.</td></tr></table>
 <h4>Numbers</h4>
 <ul>
@@ -1053,6 +1055,9 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>“Failed to verify username”</td><td>A cracked player on a premium-only server. Turn off <i>Premium accounts only</i>, or use a premium account.</td></tr>
 <tr><td>Kicked for chat / “invalid signature”</td><td>Turn off <i>Require secure chat</i>.</td></tr>
 <tr><td>Restart loops after a crash</td><td>After 3 crashes in 10 minutes, Aetheris stops trying. Read the red lines in the console or download the log.</td></tr>
+<tr><td>“A Minecraft server is already running outside Aetheris”</td><td>Something else (a server started from cmd, or one left over after Aetheris was force-closed) is using the server port. Click <b>Stop it safely</b> (saves the world) or <b>Force kill</b>, then start your server normally.</td></tr>
+<tr><td>Stuck on “Stopping…”</td><td>Aetheris waits up to 90 seconds for the world to save. After 15 seconds, the button turns into <b>Force stop</b>, which ends Java and everything it started. After 90 seconds, this happens automatically.</td></tr>
+<tr><td>“An older copy of Aetheris is already running”</td><td>Click <b>Yes</b> to switch: the old copy's server is saved and stopped, the old copy closes, and the new one starts the server again.</td></tr>
 <tr><td>The panel says “Connection to Aetheris lost”</td><td>Aetheris was closed or crashed. Start <code>Aetheris.exe</code> again and the page reconnects by itself.</td></tr>
 <tr><td>Aetheris says the panel port is in use</td><td>Another program uses port 8165. Change <code>"Port"</code> in <code>aetheris.json</code>.</td></tr>
 <tr><td>Settings changed but nothing happened</td><td>Most things need a restart. Use the yellow <i>Restart now</i> bar.</td></tr></table>
@@ -1231,13 +1236,18 @@ function renderState(s){
   const pill=$('#statePill');pill.className='pill '+cls;pill.lastChild.textContent=label;
   $('#sideDot').className='dot '+cls;$('#sideState').textContent=label;
   $('#sidePlayers').textContent=s.state==='online'?`${s.players.length}/${s.max} players`:'';
+  if(s.state==='stopping'){if(!S.stopSince)S.stopSince=Date.now()}else S.stopSince=0;
+  S.forceStop=s.state==='stopping'&&Date.now()-S.stopSince>15000;
   $$('.pw-main').forEach(b=>{
     const off=s.state==='offline',stopping=s.state==='stopping';
-    b.className=b.className.replace(/\b(ok|danger|warn)\b/g,'').trim()+' '+(off?'ok':stopping?'warn':'danger');
-    b.disabled=stopping;
-    b.querySelector('use').setAttribute('href',off?'#i-play':'#i-stop');
-    b.querySelector('span').textContent=off?'Start':stopping?'Stopping…':'Stop';
+    b.className=b.className.replace(/\b(ok|danger|warn)\b/g,'').trim()+' '+(off?'ok':stopping&&!S.forceStop?'warn':'danger');
+    b.disabled=stopping&&!S.forceStop;
+    b.querySelector('use').setAttribute('href',off?'#i-play':S.forceStop?'#i-zap':'#i-stop');
+    b.querySelector('span').textContent=off?'Start':S.forceStop?'Force stop':stopping?'Stopping…':'Stop';
+    b.title=S.forceStop?'Stopping is taking long. Force stop ends the Java process (and anything it started).':'';
   });
+  const ex=s.external;$('#extBar').hidden=!ex;
+  if(ex)$('#extWhat').textContent=`(${ex.name}, PID ${ex.pid}, port ${ex.port})`;
   $$('[data-power=restart],[data-power=kill]').forEach(b=>b.disabled=s.state==='offline');
   $('#heroState').textContent=label;
   $('#heroMotd').innerHTML=motdHtml(s.motd);
@@ -1312,7 +1322,7 @@ $('#qaFolder').onclick=()=>api('openfolder',{path:''}).catch(e=>toast(e.message,
 /* ---------- power ---------- */
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-power]');if(!b)return;
-  let a=b.dataset.power;if(a==='main')a=S.state.state==='offline'?'start':'stop';
+  let a=b.dataset.power;if(a==='main')a=S.state.state==='offline'?'start':S.forceStop?'kill':'stop';
   power(a,b);
 });
 async function power(a,btn){
@@ -1327,6 +1337,20 @@ async function acceptEula(){
   try{await api('eula',{});toast('EULA accepted.');await poll();return true}catch(e){toast(e.message,'err');return false}
 }
 $('#eulaBtn').onclick=acceptEula;
+async function extAct(kill,btn){
+  const ex=S.state.external;if(!ex)return;
+  if(!await confirmBox(kill?'Force kill the outside server?':'Stop the outside server?',kill
+    ?`This ends <b>${esc(ex.name)}</b> (PID ${ex.pid}) instantly, without saving. Progress since its last autosave is lost.`
+    :`Aetheris sends <b>${esc(ex.name)}</b> (PID ${ex.pid}) a Ctrl+C, the same as pressing Ctrl+C in its window. Minecraft then saves the world and shuts down. This can take up to a minute.`,kill,kill?'Force kill':'Stop it'))return;
+  await busy(btn,async()=>{
+    await api('external',{pid:ex.pid,action:kill?'kill':'stop'});
+    toast(kill?'Killed.':'Stop signal sent. Waiting for it to save and close…','info');
+    for(let i=0;i<60;i++){await sleep(1500);await poll();if(!S.state.external)break}
+    if(S.state.external)toast('It\'s still running. Try Force kill, or close its window.','err');else toast('The outside server has stopped. You can start your server now.');
+  });
+}
+$('#extStop').onclick=e=>extAct(false,e.currentTarget);
+$('#extKill').onclick=e=>extAct(true,e.currentTarget);
 $('#copyAddr').onclick=()=>{const t=$('#addr').textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Address copied: '+t),()=>{getSelection().selectAllChildren($('#addr'));toast('Press Ctrl+C to copy','info')})};
 $('#setupBrowse').onclick=async e=>{
   const b=e.currentTarget;
