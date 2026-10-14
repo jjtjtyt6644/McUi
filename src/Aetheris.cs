@@ -23,14 +23,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.6.3.0")]
-[assembly: AssemblyFileVersion("1.6.3.0")]
+[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyFileVersion("1.7.0.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.6.3";
+        public const string Version = "1.7.0";
 
         // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
         static void WriteRuntimeConfig()
@@ -2012,12 +2012,16 @@ namespace Aetheris
             var d = App.Cfg.ServerDir;
             switch (kind)
             {
-                case "mods": return Path.Combine(d, "mods");
+                case "mods": return Path.Combine(d, Regex.IsMatch(Loader(), "paper|purpur|spigot|bukkit|folia") ? "plugins" : "mods");
                 case "plugins": return Path.Combine(d, "plugins");
+                case "resourcepacks": return Path.Combine(d, "resourcepacks");
+                case "shaderpacks": return Path.Combine(d, "shaderpacks");
                 case "datapacks": return Path.Combine(d, Props.Get("level-name", "world"), "datapacks");
             }
             throw new Fail("Unknown add-on type.");
         }
+
+        static bool PackKind(string kind) { return kind == "datapacks" || kind == "resourcepacks" || kind == "shaderpacks"; }
 
         public static string Loader()
         {
@@ -2117,20 +2121,37 @@ namespace Aetheris
                             return Jsn.D("name", d.ContainsKey("name") ? d["name"] : null, "version", d.ContainsKey("version") ? d["version"] : null,
                                 "desc", d.ContainsKey("description") ? d["description"] : null,
                                 "env", d.ContainsKey("environment") ? Convert.ToString(d["environment"]) : "*", "mc", mc != null ? Convert.ToString(mc) : null,
-                                "id", d.ContainsKey("id") ? Convert.ToString(d["id"]) : null, "deps", dep != null ? dep.Keys.ToArray() : new string[0]);
+                                "id", d.ContainsKey("id") ? Convert.ToString(d["id"]) : null, "deps", dep != null ? dep.Keys.ToArray() : new string[0],
+                                "provides", ((d.ContainsKey("provides") ? d["provides"] as object[] : null) ?? new object[0]).Select(Convert.ToString).ToArray());
                         }
                     }
                     e = za.GetEntry("META-INF/neoforge.mods.toml") ?? za.GetEntry("META-INF/mods.toml");
                     if (e != null)
                     {
                         var t = ReadEntry(e);
-                        return Jsn.D("name", Toml(t, "displayName"), "version", Toml(t, "version"), "desc", Toml(t, "description"), "env", "*", "mc", null);
+                        var ids = Regex.Matches(t, @"(?m)^\s*modId\s*=\s*[""']([^""']+)[""']").Cast<Match>().Select(m => m.Groups[1].Value).ToList();
+                        var deps = new List<string>();
+                        foreach (Match blk in Regex.Matches(t, @"\[\[dependencies\.[^\]]+\]\]([\s\S]*?)(?=\[\[|\z)"))
+                        {
+                            var body = blk.Groups[1].Value;
+                            var mid = Regex.Match(body, @"modId\s*=\s*[""']([^""']+)[""']");
+                            bool req = Regex.IsMatch(body, @"mandatory\s*=\s*true") || Regex.IsMatch(body, @"type\s*=\s*[""']required[""']", RegexOptions.IgnoreCase);
+                            if (mid.Success && req) deps.Add(mid.Groups[1].Value);
+                        }
+                        return Jsn.D("name", Toml(t, "displayName"), "version", Toml(t, "version"), "desc", Toml(t, "description"), "env", "*", "mc", null,
+                            "id", ids.FirstOrDefault(), "provides", ids.Skip(1).ToArray(), "deps", deps.ToArray());
                     }
                     e = za.GetEntry("paper-plugin.yml") ?? za.GetEntry("plugin.yml");
                     if (e != null)
                     {
                         var t = ReadEntry(e);
-                        return Jsn.D("name", Yml(t, "name"), "version", Yml(t, "version"), "desc", Yml(t, "description"), "env", "server", "mc", null);
+                        var deps = new List<string>();
+                        var inl = Regex.Match(t, @"(?m)^depend:\s*\[([^\]]*)\]");
+                        if (inl.Success) deps.AddRange(inl.Groups[1].Value.Split(',').Select(x => x.Trim().Trim('\'', '"')).Where(x => x != ""));
+                        var blk = Regex.Match(t, @"(?m)^depend:\s*\r?\n((?:\s+-\s*.+\r?\n?)+)");
+                        if (blk.Success) deps.AddRange(Regex.Matches(blk.Groups[1].Value, @"-\s*['""]?([^'""\r\n]+)").Cast<Match>().Select(m => m.Groups[1].Value.Trim()));
+                        return Jsn.D("name", Yml(t, "name"), "version", Yml(t, "version"), "desc", Yml(t, "description"), "env", "server", "mc", null,
+                            "id", Yml(t, "name"), "provides", new string[0], "deps", deps.ToArray());
                     }
                 }
             }
@@ -2143,17 +2164,23 @@ namespace Aetheris
         public static object ClientPack()
         {
             var dir = Dir("mods");
-            if (!Directory.Exists(dir)) throw new Fail("There are no mods yet.");
             var loader = Loader();
-            if (!Regex.IsMatch(loader, "fabric|quilt|forge|neoforge")) throw new Fail("Your server isn't a mod loader (Fabric, Quilt, Forge or NeoForge) yet.");
+            bool modded = Regex.IsMatch(loader, "fabric|quilt|forge|neoforge");
+            var packs = new List<string[]>();   // [full path, path inside the pack]
+            foreach (var k in new[] { "resourcepacks", "shaderpacks" })
+            {
+                var pd = Dir(k);
+                if (Directory.Exists(pd)) foreach (var f in new DirectoryInfo(pd).GetFiles("*.zip")) packs.Add(new[] { f.FullName, k + "/" + f.Name });
+            }
+            if (!modded && packs.Count == 0) throw new Fail("Nothing for players yet: add mods (on a Fabric/Forge/NeoForge server), resource packs or shader packs.");
             var mc = McVersion();
-            var all = new DirectoryInfo(dir).GetFiles("*.jar").ToList();
+            var all = modded && Directory.Exists(dir) ? new DirectoryInfo(dir).GetFiles("*.jar").ToList() : new List<FileInfo>();
             var sides = Sides(all);
             Dictionary<string, string> why;
             var need = PlayerSet(all, sides, out why);
             var files = all.Where(f => need.Contains(f.Name)).ToList();
             int skippedOptional = all.Count - files.Count;
-            if (files.Count == 0) throw new Fail("None of your mods are needed by players. They're all server-only or optional, so players can join with plain Fabric/Minecraft.");
+            if (files.Count == 0 && packs.Count == 0) throw new Fail("None of your mods are needed by players. They're all server-only or optional, so players can join with plain Fabric/Minecraft.");
 
             var hashes = new Dictionary<string, string[]>();   // file -> sha1, sha512
             foreach (var f in files)
@@ -2202,6 +2229,7 @@ namespace Aetheris
                     }
                     else za.CreateEntryFromFile(f.FullName, "overrides/mods/" + f.Name, CompressionLevel.Fastest);
                 }
+                foreach (var pk in packs) za.CreateEntryFromFile(pk[0], "overrides/" + pk[1], CompressionLevel.Fastest);
                 var deps = new Dictionary<string, object>();
                 if (mc != "") deps["minecraft"] = mc;
                 var lv = LoaderVersion();
@@ -2217,6 +2245,7 @@ namespace Aetheris
             using (var za = new ZipArchive(fs, ZipArchiveMode.Create))
             {
                 foreach (var f in files) za.CreateEntryFromFile(f.FullName, "mods/" + f.Name, CompressionLevel.Fastest);
+                foreach (var pk in packs) za.CreateEntryFromFile(pk[0], pk[1], CompressionLevel.Fastest);
                 var e = za.CreateEntry("HOW TO INSTALL.txt");
                 using (var w = new StreamWriter(e.Open(), new UTF8Encoding(false)))
                     w.Write("Mods for the server (Minecraft " + (mc != "" ? mc : "?") + ", " + loader + ").\r\n\r\n" +
@@ -2226,7 +2255,34 @@ namespace Aetheris
                         "4. Start Minecraft with the " + loader + " profile and join the server.\r\n");
             }
             Server.Log("Client modpack created: " + files.Count + " mods (" + fromModrinth + " linked to Modrinth).");
-            return Jsn.D("ok", true, "mrpack", Fs.Rel(mrpack), "zip", Fs.Rel(zip), "count", files.Count, "linked", fromModrinth, "mc", mc, "loader", loader, "optional", skippedOptional);
+            return Jsn.D("ok", true, "mrpack", Fs.Rel(mrpack), "zip", Fs.Rel(zip), "count", files.Count, "linked", fromModrinth, "mc", mc, "loader", loader, "optional", skippedOptional, "packs", packs.Count);
+        }
+
+        public static object CfLink(string link, string kind, string mc, string loader)
+        {
+            link = (link ?? "").Trim();
+            var cat = kind == "resourcepacks" ? "texture-packs" : kind == "shaderpacks" ? "shaders" : kind == "datapacks" ? "data-packs" : Regex.IsMatch(Loader(), "paper|purpur|spigot|bukkit") ? "bukkit-plugins" : "mc-mods";
+            var m = Regex.Match(link, @"curseforge\.com/minecraft/([a-z\-]+)/([A-Za-z0-9_\-]+)");
+            string path = m.Success ? "minecraft/" + m.Groups[1].Value + "/" + m.Groups[2].Value
+                : Regex.IsMatch(link, @"^[A-Za-z0-9_\-]{2,80}$") ? "minecraft/" + cat + "/" + link : null;
+            if (path == null) throw new Fail("Paste a CurseForge project link, e.g. https://www.curseforge.com/minecraft/mc-mods/jei");
+            Dictionary<string, object> d;
+            try { d = Jsn.S.DeserializeObject(Net.Fetch("https://api.cfwidget.com/" + path)) as Dictionary<string, object>; }
+            catch (Exception ex) { throw new Fail("Couldn't look up that CurseForge project: " + ex.Message); }
+            if (d == null || !d.ContainsKey("files")) throw new Fail("CurseForge project not found.");
+            var files = ((d["files"] as object[]) ?? new object[0]).OfType<Dictionary<string, object>>().ToList();
+            Func<Dictionary<string, object>, string[]> vers = f => ((f.ContainsKey("versions") ? f["versions"] as object[] : null) ?? new object[0]).Select(Convert.ToString).ToArray();
+            var ok = files.Where(f => (mc == "" || vers(f).Contains(mc)) &&
+                (kind != "mods" || string.IsNullOrEmpty(loader) || vers(f).Any(v => v.Equals(loader, StringComparison.OrdinalIgnoreCase)) || !vers(f).Any(v => Regex.IsMatch(v, "^(Forge|NeoForge|Fabric|Quilt)$")))).ToList();
+            var pick = ok.FirstOrDefault(f => Convert.ToString(f.ContainsKey("type") ? f["type"] : "") == "release") ?? ok.FirstOrDefault();
+            if (pick == null) throw new Fail("“" + d["title"] + "” has no file for Minecraft " + (mc == "" ? "?" : mc) + (kind == "mods" && loader != "" ? " / " + loader : "") + ".");
+            long id = Convert.ToInt64(pick["id"]);
+            var name = Convert.ToString(pick["name"]);
+            if (!Regex.IsMatch(name, @"^[^\\/:*?""<>|]{1,150}\.(jar|zip)$", RegexOptions.IgnoreCase)) throw new Fail("Unexpected file name from CurseForge.");
+            Net.DownloadTo("https://mediafilez.forgecdn.net/files/" + (id / 1000) + "/" + (id % 1000) + "/" + Uri.EscapeDataString(name), Path.Combine(Dir(kind), name));
+            Server.Log("Installed " + name + " from CurseForge.");
+            Server.NeedRestart(kind);
+            return Jsn.D("ok", true, "name", name, "title", d["title"]);
         }
 
         static string Hex(byte[] b) { return BitConverter.ToString(b).Replace("-", "").ToLowerInvariant(); }
@@ -2390,8 +2446,8 @@ namespace Aetheris
                 {
                     bool dis = f.Name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
                     var bn = dis ? f.Name.Substring(0, f.Name.Length - 9) : f.Name;
-                    if (!bn.EndsWith(kind == "datapacks" ? ".zip" : ".jar", StringComparison.OrdinalIgnoreCase)) continue;
-                    var meta = kind == "datapacks" ? null : JarMeta(f.FullName);
+                    if (!bn.EndsWith(PackKind(kind) ? ".zip" : ".jar", StringComparison.OrdinalIgnoreCase)) continue;
+                    var meta = PackKind(kind) ? null : JarMeta(f.FullName);
                     object nm = meta != null ? meta["name"] : null;
                     items.Add(Jsn.D("file", f.Name, "name", nm ?? Path.GetFileNameWithoutExtension(bn),
                         "version", meta != null ? meta["version"] : null, "desc", meta != null ? meta["desc"] : null,
@@ -2400,16 +2456,46 @@ namespace Aetheris
                         "players", kind == "mods" && !dis ? (object)needSet.Contains(f.Name) : null, "neededBy", why.ContainsKey(f.Name) ? why[f.Name] : null,
                         "enabled", !dis, "size", f.Length, "modified", Jsn.Ms(f.LastWriteTimeUtc), "dir", false));
                 }
-                if (kind == "datapacks")
+                if (PackKind(kind))
                     foreach (var d in new DirectoryInfo(dir).GetDirectories())
                     {
-                        if (!File.Exists(Path.Combine(d.FullName, "pack.mcmeta"))) continue;
+                        if (kind == "shaderpacks" ? !Directory.Exists(Path.Combine(d.FullName, "shaders")) : !File.Exists(Path.Combine(d.FullName, "pack.mcmeta"))) continue;
                         bool dis = d.Name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
                         items.Add(Jsn.D("file", d.Name, "name", dis ? d.Name.Substring(0, d.Name.Length - 9) : d.Name, "version", null, "desc", null,
                             "enabled", !dis, "size", Fs.DirSize(d.FullName), "modified", Jsn.Ms(d.LastWriteTimeUtc), "dir", true));
                     }
             }
+            if (kind == "mods") MarkMissing(items, dir);
             return Jsn.D("kind", kind, "items", items, "dir", Fs.Rel(dir), "loader", Loader(), "mc", McVersion(), "loaderVersion", LoaderVersion());
+        }
+
+        static readonly HashSet<string> BuiltIn = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+            "minecraft", "java", "fabricloader", "fabric-loader", "forge", "neoforge", "quilt_loader", "quilt_base", "fml", "javafml", "mixinextras" };
+
+        // Marks mods whose required mods aren't installed (or are disabled): item["missing"] = list of mod ids.
+        static void MarkMissing(List<object> items, string dir)
+        {
+            var have = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var metas = new Dictionary<string, Dictionary<string, object>>();
+            foreach (Dictionary<string, object> it in items)
+            {
+                if (!(bool)it["enabled"]) continue;
+                var m = JarMeta(Path.Combine(dir, Convert.ToString(it["file"])));
+                if (m == null) continue;
+                metas[Convert.ToString(it["file"])] = m;
+                if (m.ContainsKey("id") && m["id"] != null) have.Add(Convert.ToString(m["id"]));
+                foreach (var pv in (m.ContainsKey("provides") ? m["provides"] as string[] : null) ?? new string[0]) have.Add(pv);
+            }
+            bool fabricApi = have.Contains("fabric-api") || have.Contains("fabric");
+            foreach (Dictionary<string, object> it in items)
+            {
+                Dictionary<string, object> m;
+                if (!metas.TryGetValue(Convert.ToString(it["file"]), out m)) continue;
+                var missing = ((m.ContainsKey("deps") ? m["deps"] as string[] : null) ?? new string[0])
+                    .Where(d => !BuiltIn.Contains(d) && !have.Contains(d) && !(d.StartsWith("fabric-") && fabricApi) && !(d.StartsWith("quilted_fabric") && fabricApi))
+                    .Distinct().ToArray();
+                if (missing.Length > 0) it["missing"] = missing;
+            }
         }
 
         public static void Op(string kind, string op, string file)
@@ -2442,9 +2528,16 @@ namespace Aetheris
             var added = new List<string>();
             string note = null;
 
-            if (lname.EndsWith(".jar"))
+            if ((kind == "resourcepacks" || kind == "shaderpacks") && lname.EndsWith(".zip"))
             {
-                if (kind == "datapacks") throw new Fail("Datapacks are .zip files.");
+                var dest = Path.Combine(dir, name);
+                if (File.Exists(dest)) File.Delete(dest);
+                File.Move(tmp, dest);
+                added.Add(name);
+            }
+            else if (lname.EndsWith(".jar"))
+            {
+                if (PackKind(kind)) throw new Fail("Packs are .zip files.");
                 var dest = Path.Combine(dir, name);
                 if (File.Exists(dest)) File.Delete(dest);
                 File.Move(tmp, dest);
@@ -2479,7 +2572,7 @@ namespace Aetheris
                     else
                     {
                         // A whole server pack (has a mods/ or plugins/ folder): extract it into the server folder, configs included.
-                        string folder = kind + "/", prefix = null;
+                        string folder = Path.GetFileName(dir) + "/", prefix = null;
                         foreach (var e in za.Entries)
                         {
                             var n = Norm(e);
@@ -2848,7 +2941,7 @@ namespace Aetheris
             "piston-meta.mojang.com", "piston-data.mojang.com", "launchermeta.mojang.com", "launcher.mojang.com",
             "api.papermc.io", "fill.papermc.io", "fill-data.papermc.io", "api.purpurmc.org", "meta.fabricmc.net",
             "api.modrinth.com", "cdn.modrinth.com", "files.minecraftforge.net", "maven.minecraftforge.net", "maven.neoforged.net",
-            "api.curseforge.com", "edge.forgecdn.net", "mediafilez.forgecdn.net", "github.com", "objects.githubusercontent.com", "raw.githubusercontent.com", "release-assets.githubusercontent.com" };
+            "api.curseforge.com", "edge.forgecdn.net", "mediafilez.forgecdn.net", "api.cfwidget.com", "github.com", "objects.githubusercontent.com", "raw.githubusercontent.com", "release-assets.githubusercontent.com" };
 
         class Wc : WebClient
         {
@@ -3389,6 +3482,9 @@ namespace Aetheris
                         Server.NeedRestart("server software");
                         return res;
                     }
+
+                case "/api/cf-link":
+                    return Addons.CfLink(r.S("link"), r.S("kind"), r.S("mc"), r.S("loader"));
 
                 case "/api/cf":
                     {
