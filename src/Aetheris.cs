@@ -23,14 +23,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.6.2.0")]
-[assembly: AssemblyFileVersion("1.6.2.0")]
+[assembly: AssemblyVersion("1.6.3.0")]
+[assembly: AssemblyFileVersion("1.6.3.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.6.2";
+        public const string Version = "1.6.3";
 
         // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
         static void WriteRuntimeConfig()
@@ -1025,6 +1025,7 @@ namespace Aetheris
                 if (!App.Configured) return "Choose your server folder in Settings first.";
                 if (!Config.JarExists(c.ServerDir, c.Jar)) return "No server software selected. Pick or install one in Software.";
                 if (!Eula()) return "You need to accept the Minecraft EULA before starting.";
+                try { Worlds.RepairPaperData(); } catch (Exception ex) { Log("World check failed: " + ex.Message); }
                 var ext = External();
                 if (ext != null) return "A Minecraft server is already running outside Aetheris on port " + ext["port"] + " (" + ext["name"] + ", PID " + ext["pid"] + "). Stop it from the Dashboard first.";
 
@@ -1783,7 +1784,28 @@ namespace Aetheris
                 }
                 catch (Exception ex) { Server.Log("Couldn't convert " + level + pair[0] + ": " + ex.Message); }
             }
+            try { RepairPaperData(); } catch (Exception ex) { Server.Log("Couldn't convert world settings: " + ex.Message); }
             Server.Log("World converted from the Paper layout to the Vanilla layout for " + now + ". A backup was made first (Backups → \"before-switch\").");
+        }
+
+        // Minecraft 26.x: Paper keeps world-wide data (generation settings, game rules, weather, scheduled events) in
+        // world/dimensions/minecraft/overworld/data/minecraft, Vanilla/Fabric/Forge read it from world/data/minecraft.
+        // Copies what's missing so the world loads with the same seed and game rules. Paper's copies stay untouched.
+        public static int RepairPaperData()
+        {
+            if (!App.Configured || IsBukkit(Addons.Loader())) return 0;
+            var level = Path.Combine(App.Cfg.ServerDir, Props.Get("level-name", "world"));
+            var src = Path.Combine(level, @"dimensions\minecraft\overworld\data\minecraft");
+            var dst = Path.Combine(level, @"data\minecraft");
+            if (!Directory.Exists(src) || File.Exists(Path.Combine(dst, "world_gen_settings.dat"))) return 0;
+            int n = 0;
+            foreach (var f in new[] { "world_gen_settings.dat", "game_rules.dat", "weather.dat", "scheduled_events.dat", "world_clocks.dat" })
+            {
+                var a = Path.Combine(src, f); var b = Path.Combine(dst, f);
+                if (File.Exists(a) && !File.Exists(b)) { Directory.CreateDirectory(dst); File.Copy(a, b); n++; }
+            }
+            if (n > 0) Server.Log("Converted a Paper world for " + Addons.Loader() + ": copied " + n + " world settings files (seed, game rules, weather) to where it expects them.");
+            return n;
         }
 
         public static object List()
