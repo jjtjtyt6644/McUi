@@ -23,14 +23,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.7.0.0")]
-[assembly: AssemblyFileVersion("1.7.0.0")]
+[assembly: AssemblyVersion("1.7.1.0")]
+[assembly: AssemblyFileVersion("1.7.1.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.7.0";
+        public const string Version = "1.7.1";
 
         // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
         static void WriteRuntimeConfig()
@@ -1026,6 +1026,7 @@ namespace Aetheris
                 if (!Config.JarExists(c.ServerDir, c.Jar)) return "No server software selected. Pick or install one in Software.";
                 if (!Eula()) return "You need to accept the Minecraft EULA before starting.";
                 try { Worlds.RepairPaperData(); } catch (Exception ex) { Log("World check failed: " + ex.Message); }
+                foreach (var miss in Addons.MissingSummary()) Log("WARNING: " + miss + ". Install it on the Mods page, or the server may crash.");
                 var ext = External();
                 if (ext != null) return "A Minecraft server is already running outside Aetheris on port " + ext["port"] + " (" + ext["name"] + ", PID " + ext["pid"] + "). Stop it from the Dashboard first.";
 
@@ -2258,6 +2259,84 @@ namespace Aetheris
             return Jsn.D("ok", true, "mrpack", Fs.Rel(mrpack), "zip", Fs.Rel(zip), "count", files.Count, "linked", fromModrinth, "mc", mc, "loader", loader, "optional", skippedOptional, "packs", packs.Count);
         }
 
+        static Dictionary<string, object> J(string s) { return Jsn.S.DeserializeObject(s) as Dictionary<string, object>; }
+        static string Norm(string s) { return Regex.Replace((s ?? "").ToLowerInvariant(), "[^a-z0-9]", ""); }
+
+        public static object ResolveDep(string id, string mc, string loader)
+        {
+            id = (id ?? "").Trim();
+            if (!Regex.IsMatch(id, @"^[A-Za-z0-9_.\-]{1,64}$")) throw new Fail("Invalid mod id.");
+            var loaders = Jsn.S.Serialize(new[] { string.IsNullOrEmpty(loader) ? "fabric" : loader });
+            var gv = string.IsNullOrEmpty(mc) ? "" : "&game_versions=" + Uri.EscapeDataString(Jsn.S.Serialize(new[] { mc }));
+            // 1) Modrinth project with that id/slug, 2) Modrinth search with a matching name
+            var candidates = new List<string> { id, id.Replace('_', '-') };
+            try
+            {
+                var facets = Jsn.S.Serialize(new object[] { new[] { "project_type:mod" }, new[] { "categories:" + (string.IsNullOrEmpty(loader) ? "fabric" : loader) } });
+                var sr = J(Net.Fetch("https://api.modrinth.com/v2/search?limit=10&query=" + Uri.EscapeDataString(id.Replace('_', ' ').Replace('-', ' ')) + "&facets=" + Uri.EscapeDataString(facets)));
+                foreach (var h in ((sr != null ? sr["hits"] as object[] : null) ?? new object[0]).OfType<Dictionary<string, object>>())
+                    if (Norm(Convert.ToString(h["slug"])) == Norm(id) || Norm(Convert.ToString(h["title"])) == Norm(id)) candidates.Add(Convert.ToString(h["project_id"]));
+            }
+            catch { }
+            foreach (var c in candidates.Distinct())
+            {
+                try
+                {
+                    var proj = J(Net.Fetch("https://api.modrinth.com/v2/project/" + Uri.EscapeDataString(c)));
+                    if (proj == null) continue;
+                    var vs = Jsn.S.DeserializeObject(Net.Fetch("https://api.modrinth.com/v2/project/" + proj["id"] + "/version?loaders=" + Uri.EscapeDataString(loaders) + gv)) as object[];
+                    var v = (vs ?? new object[0]).OfType<Dictionary<string, object>>().OrderBy(x => Convert.ToString(x["version_type"]) == "release" ? 0 : 1).FirstOrDefault();
+                    if (v == null) return Jsn.D("found", false, "title", proj["title"], "source", "modrinth", "page", "https://modrinth.com/mod/" + proj["slug"], "reason", "no file for Minecraft " + mc + " / " + loader);
+                    var f = ((v["files"] as object[]) ?? new object[0]).OfType<Dictionary<string, object>>().OrderBy(x => x.ContainsKey("primary") && x["primary"] is bool && (bool)x["primary"] ? 0 : 1).First();
+                    return Jsn.D("found", true, "source", "Modrinth", "title", proj["title"], "url", f["url"], "name", f["filename"], "page", "https://modrinth.com/mod/" + proj["slug"]);
+                }
+                catch { }
+            }
+            // 3) CurseForge (no key) by likely project names
+            foreach (var slug in new[] { id, id.Replace('_', '-'), id.Replace('_', '-') + "-lib", id.Replace('_', '-') + "-api", id.Replace('_', '-') + "-library", id.Replace('_', '-') + "-fabric" }.Distinct())
+            {
+                try
+                {
+                    var r = Net.Fetch("https://api.cfwidget.com/minecraft/mc-mods/" + slug);
+                    var d = J(r);
+                    if (d == null || !d.ContainsKey("files")) continue;
+                    var pick = PickCfFile(d, "mods", mc, loader);
+                    if (pick == null) return Jsn.D("found", false, "title", d["title"], "source", "curseforge", "page", "https://www.curseforge.com/minecraft/mc-mods/" + slug, "reason", "no file for Minecraft " + mc + " / " + loader);
+                    long fid = Convert.ToInt64(pick["id"]);
+                    var name = Convert.ToString(pick["name"]);
+                    return Jsn.D("found", true, "source", "CurseForge", "title", d["title"], "name", name,
+                        "url", "https://mediafilez.forgecdn.net/files/" + (fid / 1000) + "/" + (fid % 1000) + "/" + Uri.EscapeDataString(name),
+                        "page", "https://www.curseforge.com/minecraft/mc-mods/" + slug);
+                }
+                catch { }
+            }
+            return Jsn.D("found", false, "title", id, "reason", "not found on Modrinth or CurseForge under that name");
+        }
+
+        static Dictionary<string, object> PickCfFile(Dictionary<string, object> d, string kind, string mc, string loader)
+        {
+            var files = ((d["files"] as object[]) ?? new object[0]).OfType<Dictionary<string, object>>().ToList();
+            Func<Dictionary<string, object>, string[]> vers = f => ((f.ContainsKey("versions") ? f["versions"] as object[] : null) ?? new object[0]).Select(Convert.ToString).ToArray();
+            var ok = files.Where(f => (string.IsNullOrEmpty(mc) || vers(f).Contains(mc)) &&
+                (kind != "mods" || string.IsNullOrEmpty(loader) || vers(f).Any(v => v.Equals(loader, StringComparison.OrdinalIgnoreCase)) || !vers(f).Any(v => Regex.IsMatch(v, "^(Forge|NeoForge|Fabric|Quilt)$")))).ToList();
+            return ok.FirstOrDefault(f => Convert.ToString(f.ContainsKey("type") ? f["type"] : "") == "release") ?? ok.FirstOrDefault();
+        }
+
+        // ids of required mods that aren't installed (used before starting the server)
+        public static List<string> MissingSummary()
+        {
+            var res = new List<string>();
+            try
+            {
+                if (!Regex.IsMatch(Loader(), "fabric|quilt|forge|neoforge")) return res;
+                var l = List("mods") as Dictionary<string, object>;
+                foreach (Dictionary<string, object> it in (List<object>)l["items"])
+                    if (it.ContainsKey("missing")) res.Add(it["name"] + " needs " + string.Join(", ", (string[])it["missing"]));
+            }
+            catch { }
+            return res;
+        }
+
         public static object CfLink(string link, string kind, string mc, string loader)
         {
             link = (link ?? "").Trim();
@@ -3482,6 +3561,9 @@ namespace Aetheris
                         Server.NeedRestart("server software");
                         return res;
                     }
+
+                case "/api/resolve-dep":
+                    return Addons.ResolveDep(r.S("id"), r.S("mc"), r.S("loader"));
 
                 case "/api/cf-link":
                     return Addons.CfLink(r.S("link"), r.S("kind"), r.S("mc"), r.S("loader"));

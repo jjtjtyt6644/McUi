@@ -346,6 +346,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 .gsec .steps li{counter-increment:st;position:relative;padding-left:36px;margin:10px 0}
 .gsec .steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:24px;height:24px;border-radius:50%;background:var(--grad);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center}
 .ghit{display:none}
+#depList .meta{white-space:normal;overflow:visible}
+#depList .li{flex-wrap:nowrap}
 .tasks .li{align-items:flex-start}
 .tasks pre{margin:4px 0 0;font:12px var(--mono);color:#cbd2e4;white-space:pre-wrap}
 @media (max-width:980px){.guide{grid-template-columns:1fr}.gtoc{position:static;max-height:none}}
@@ -1435,6 +1437,14 @@ document.addEventListener('click',e=>{
 });
 async function power(a,btn){
   if(a==='start'&&S.state.configured&&!S.state.eula){if(!await acceptEula())return}
+  if(a==='start'||a==='restart'){
+    let miss=[];try{miss=await missingMods()}catch(e){}
+    if(miss.length){
+      const fix=await modal({title:'Some mods need other mods',ok:'Install missing mods',cancel:'Start anyway',danger:false,
+        html:`<p>${miss.slice(0,6).map(m=>`<b>${esc(m.mod)}</b> needs ${m.ids.map(x=>`<code>${esc(x)}</code>`).join(', ')}`).join('<br>')}</p><p>Without them the server will most likely crash while starting.</p>`});
+      if(fix){location.hash='#mods';const ok=await depDialog(miss,true);if(!ok)return}
+    }
+  }
   if(a==='kill'&&!await confirmBox('Force kill the server?','This ends the Java process instantly. Anything since the last autosave is lost. Only use this if the server is frozen.',true,'Kill server'))return;
   await busy(btn,async()=>{await api('power',{action:a});toast({start:'Server is starting…',stop:'Server is stopping…',restart:'Server is restarting…',kill:'Server killed.'}[a],a==='kill'?'err':'info')});
   poll();
@@ -1878,11 +1888,44 @@ function mcMismatch(needs,mc){
   return !!(nums&&nums.length&&!nums.some(n=>n.split('.').slice(0,2).join('.')===want));
 }
 const sideBadge=(e,side)=>side==='unsupported'?'<span class="badge n" title="Modrinth: server-side only">server only</span>':side==='optional'?'<span class="badge g" title="Modrinth: players can join without it">optional for players</span>':side==='required'?'<span class="badge" title="Modrinth: every player must have this mod">players need it</span>':e==='server'?'<span class="badge n" title="Only the server needs this">server only</span>':e==='client'?'<span class="badge y" title="This is a client-side mod. It does nothing on a server.">client only</span>':'<span class="badge" title="Every player must have this mod to join">players need it</span>';
-$('#mMissingFix').onclick=()=>{
-  S.mview='browse';$$('#mView button').forEach(x=>x.classList.toggle('on',x.dataset.v==='browse'));$('#mInstalled').hidden=true;$('#mBrowse').hidden=false;
-  $('#mSrc').value='modrinth';$('#mSearch').q.value=(S.missingIds||[])[0]||'';mSearch();
-  if((S.missingIds||[]).length>1)toast('Also needed: '+S.missingIds.slice(1).join(', '),'info');
-};
+$('#mMissingFix').onclick=()=>depDialog();
+// Lists the mods' missing required mods and installs them (Modrinth first, then CurseForge, no key needed).
+async function missingMods(){
+  if(!/fabric|quilt|forge|neoforge/.test(S.state.loader))return[];
+  const d=await api('addons?kind=mods');
+  return d.items.filter(i=>i.enabled&&i.missing&&i.missing.length).map(i=>({mod:i.name,ids:i.missing}));
+}
+async function depDialog(miss,afterStart){
+  miss=miss||await missingMods();
+  if(!miss.length){toast('All required mods are installed.');return true}
+  const ids=[...new Set(miss.flatMap(m=>m.ids))];
+  const who=id=>miss.filter(m=>m.ids.includes(id)).map(m=>m.mod).join(', ');
+  const mc=S.state.mc||$('#mMc').value.trim(),loader=/fabric|quilt|forge|neoforge/.test(S.state.loader)?S.state.loader:'fabric';
+  let res={};
+  const done=await modal({title:'Install required mods',ok:'Install selected',cancel:afterStart?'Start anyway':'Later',wide:false,html:`<p>These mods are needed by mods you installed. Without them the server will crash on start.</p><div class="list" id="depList">${ids.map(id=>`<div class="li" data-dep="${esc(id)}"><span class="av">${ic('puzzle')}</span><div class="grow"><div class="nm"><code>${esc(id)}</code> <span class="dim" style="font-weight:400;font-size:12px">needed by ${esc(who(id))}</span></div><div class="meta">Looking on Modrinth and CurseForge…</div></div><div class="acts"><span class="sw"><input type="checkbox" name="dep_${esc(id)}" disabled><span></span></span></div></div>`).join('')}</div>
+    <p class="dim" style="font-size:12.5px;margin-top:10px">If one isn't found automatically, open its page, then paste the CurseForge link on the Browse tab (no key needed) or upload the .jar.</p>`,
+    onOpen:async m=>{
+      await Promise.all(ids.map(async id=>{
+        const row=$(`[data-dep="${CSS.escape(id)}"]`,m);if(!row)return;
+        try{
+          const r=await api('resolve-dep',{id,mc,loader});res[id]=r;
+          const meta=$('.meta',row),cb=$('input',row);
+          if(r.found){meta.innerHTML=`<b style="color:var(--text)">${esc(r.title)}</b> · ${esc(r.name)} <span class="badge ${r.source==='Modrinth'?'g':'n'}">${esc(r.source)}</span>`;cb.disabled=false;cb.checked=true}
+          else meta.innerHTML=`<span style="color:#fca5a5">Not found automatically (${esc(r.reason||'')}).</span> ${r.page?`<a data-href="${esc(r.page)}" tabindex="0" role="link">Open page</a> · `:''}<a data-href="https://www.curseforge.com/minecraft/search?search=${encodeURIComponent(id)}" tabindex="0" role="link">Search CurseForge</a> · <a data-href="https://modrinth.com/mods?q=${encodeURIComponent(id)}" tabindex="0" role="link">Search Modrinth</a>`;
+        }catch(e){$('.meta',row).textContent='Lookup failed: '+e.message}
+      }));
+    }});
+  if(!done)return false;
+  const pick=ids.filter(id=>done['dep_'+id]&&res[id]&&res[id].found);
+  if(!pick.length)return false;
+  toast(`Installing ${pick.length} required mod${pick.length>1?'s':''}…`,'info');
+  for(const id of pick){try{await api('addon-install',{kind:'mods',url:res[id].url,name:res[id].name})}catch(e){toast(id+': '+e.message,'err')}}
+  await LOAD.mods();
+  const again=await missingMods();   // the new mods may need more mods
+  if(again.length)return depDialog(again,afterStart);
+  toast('All required mods are installed.');return true;
+}
+async function afterInstall(){try{const m=await missingMods();if(m.length)depDialog(m)}catch(e){}}
 LOAD.mods=async()=>{
   if(!S.mkind)setMKind('mods');
   mBanner();
@@ -1923,7 +1966,8 @@ async function uploadAddons(files){
       else if(r.deps){const loader=Object.keys(r.deps).find(k=>k!=='minecraft');if(loader)toast(`This pack needs Minecraft ${r.deps.minecraft} with ${loader.replace('-loader','')} ${r.deps[loader]}. Install it in Software.`,'info',{label:'Software',fn:()=>location.hash='#software'})}
     }catch(er){toast(f.name+': '+er.message,'err')}
   }
-  LOAD.mods();
+  await LOAD.mods();
+  if(S.mkind==='mods')afterInstall();
 }
 $('#mUpload').onchange=e=>{const f=e.target.files;uploadAddons(f).finally(()=>e.target.value='')};
 $('#mFolder').onclick=()=>S.mdata&&api('openfolder',{path:S.mdata.dir}).catch(e=>toast('The folder is created when you add something.','info'));
@@ -1976,7 +2020,7 @@ async function mSearch(){
     return;
   }
   const f=isPlug()?[['categories:paper','categories:spigot','categories:bukkit','categories:purpur']]
-    :S.mkind==='mods'?[['project_type:mod'],['categories:'+$('#mLoader').value],['server_side:required','server_side:optional']]
+    :S.mkind==='mods'?[['project_type:mod'],['categories:'+$('#mLoader').value]]
     :S.mkind==='resourcepacks'?[['project_type:resourcepack']]:S.mkind==='shaderpacks'?[['project_type:shader']]:[['categories:datapack']];
   if(mc)f.push(['versions:'+mc]);
   const url=`https://api.modrinth.com/v2/search?limit=20&index=${q?'relevance':'downloads'}&query=${encodeURIComponent(q)}&facets=${encodeURIComponent(JSON.stringify(f))}`;
@@ -2009,6 +2053,7 @@ $('#cfLink').onsubmit=e=>{
     const r=await api('cf-link',{link,kind:S.mkind,mc:$('#mMc').value.trim(),loader:isPlug()?'':$('#mLoader').value});
     toast(`Installed ${r.title} (${r.name}). Check the Installed tab for any mods it needs.`,'ok',S.state.state!=='offline'?{label:'Restart',fn:()=>power('restart')}:null);
     e.target.reset();
+    setTimeout(afterInstall,300);
   });
 };
 $('#mSrc').onchange=()=>{$('#mResults').innerHTML='';mSearch()};
@@ -2016,6 +2061,7 @@ $('#mResults').addEventListener('click',e=>{
   const b=e.target.closest('[data-cf]');if(!b)return;
   busy(b,async()=>{
     const files=await cfInstall(+b.dataset.cf,S.mkind,$('#mMc').value.trim(),new Set(),0);
+    setTimeout(afterInstall,300);
     b.innerHTML=ic('check')+'Installed';b.classList.add('ok');
     toast(`Installed ${b.dataset.mn}${files.length>1?` + ${files.length-1} dependenc${files.length===2?'y':'ies'}`:''}. Restart to load it.`,'ok',S.state.state!=='offline'?{label:'Restart',fn:()=>power('restart')}:null);
   }).then(()=>{if(b.classList.contains('ok'))b.disabled=true});
@@ -2024,6 +2070,7 @@ $('#mResults').onclick=e=>{
   const b=e.target.closest('[data-mi]');if(!b)return;
   busy(b,async()=>{
     const files=await mrInstall(b.dataset.mi,S.mkind,mLoaders(),$('#mMc').value.trim(),new Set(),0);
+    setTimeout(afterInstall,300);
     b.innerHTML=ic('check')+'Installed';b.classList.add('ok');
     toast(`Installed ${b.dataset.mn}${files.length>1?` + ${files.length-1} dependenc${files.length===2?'y':'ies'}`:''}. Restart to load it.`,'ok',S.state.state!=='offline'?{label:'Restart',fn:()=>power('restart')}:null);
   }).then(()=>{if(b.classList.contains('ok'))b.disabled=true});
