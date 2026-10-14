@@ -23,14 +23,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.7.2.0")]
-[assembly: AssemblyFileVersion("1.7.2.0")]
+[assembly: AssemblyVersion("1.8.0.0")]
+[assembly: AssemblyFileVersion("1.8.0.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.7.2";
+        public const string Version = "1.8.0";
 
         // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
         static void WriteRuntimeConfig()
@@ -568,8 +568,7 @@ namespace Aetheris
                 if (c.DailyRestart != "" && Server.Running && DateTime.Now.ToString("HH:mm") == c.DailyRestart && lastDailyRestart.Date != DateTime.Today)
                 {
                     lastDailyRestart = DateTime.Now;
-                    Server.Send("say Scheduled daily restart — back in a moment!", false);
-                    Server.Stop(true); did = true;
+                    Server.RestartWithWarning(60); did = true;
                 }
             }
             catch (Exception ex) { Server.Log("Scheduler error: " + ex.Message); }
@@ -1226,6 +1225,35 @@ namespace Aetheris
             if (force) { Log("Force killing outside server (PID " + pid + ")."); Net2.KillTree(pid); return null; }
             Log("Asking the outside server (PID " + pid + ") to save and stop (Ctrl+C)…");
             if (!Net2.SendCtrlC(pid)) return "Couldn't send a stop signal to it (it has no console). Use Force kill, or close its window yourself.";
+            return null;
+        }
+
+        static volatile bool countingDown;
+        public static string RestartWithWarning(int secs)
+        {
+            if (!Running) return Start();
+            if (countingDown) return "A restart countdown is already running.";
+            countingDown = true;
+            App.Bg(_ =>
+            {
+                try
+                {
+                    var marks = new[] { 600, 300, 120, 60, 30, 10, 5, 4, 3, 2, 1 };
+                    var end = DateTime.Now.AddSeconds(secs);
+                    Log("Restart countdown: " + secs + " seconds.");
+                    int said = -1;
+                    while (Running)
+                    {
+                        int left = (int)Math.Ceiling((end - DateTime.Now).TotalSeconds);
+                        if (left <= 0) break;
+                        if ((marks.Contains(left) || left == secs) && left != said && (said = left) > 0)
+                            Send("say Server restarting in " + (left >= 60 && left % 60 == 0 ? (left / 60) + " minute" + (left == 60 ? "" : "s") : left + " second" + (left == 1 ? "" : "s")) + "!", false);
+                        Thread.Sleep(Math.Max(50, (int)((end - DateTime.Now).TotalMilliseconds - (left - 1) * 1000)));
+                    }
+                    if (Running) { Send("save-all", false); Thread.Sleep(1500); Stop(true); }
+                }
+                finally { countingDown = false; }
+            });
             return null;
         }
 
@@ -3023,52 +3051,67 @@ namespace Aetheris
     // ------------------------------------------------------------------ bukkit.yml (Paper / Purpur / Spigot)
     static class Bukkit
     {
+        // keys starting with "world-settings." live in spigot.yml, the rest in bukkit.yml
         static readonly string[] Keys = {
             "settings.allow-end", "settings.connection-throttle", "spawn-limits.monsters", "spawn-limits.animals",
-            "spawn-limits.water-animals", "spawn-limits.ambient", "ticks-per.autosave", "ticks-per.monster-spawns" };
-        static string FilePath { get { return Path.Combine(App.Cfg.ServerDir, "bukkit.yml"); } }
+            "spawn-limits.water-animals", "spawn-limits.ambient", "ticks-per.autosave", "ticks-per.monster-spawns",
+            "world-settings.default.item-despawn-rate", "world-settings.default.arrow-despawn-rate",
+            "world-settings.default.merge-radius.item", "world-settings.default.merge-radius.exp",
+            "world-settings.default.mob-spawn-range", "world-settings.default.view-distance", "world-settings.default.simulation-distance" };
+        static string FileFor(string key) { return Path.Combine(App.Cfg.ServerDir, key.StartsWith("world-settings.") ? "spigot.yml" : "bukkit.yml"); }
 
-        static int Find(List<string> lines, string sec, string key)
+        // line index of a nested YAML key like "world-settings.default.item-despawn-rate", or -1
+        static int Find(List<string> lines, string path)
         {
-            bool inSec = false;
+            var stack = new List<KeyValuePair<int, string>>();
             for (int i = 0; i < lines.Count; i++)
             {
-                var l = lines[i];
-                if (l.Trim() == "" || l.TrimStart().StartsWith("#")) continue;
-                if (!char.IsWhiteSpace(l[0])) { inSec = l.TrimEnd() == sec + ":"; continue; }
-                if (inSec && Regex.IsMatch(l, @"^\s+" + Regex.Escape(key) + @":")) return i;
+                var m = Regex.Match(lines[i], @"^(\s*)([^\s#:][^:#]*?):(\s|$)");
+                if (!m.Success) continue;
+                int ind = m.Groups[1].Value.Length;
+                while (stack.Count > 0 && stack[stack.Count - 1].Key >= ind) stack.RemoveAt(stack.Count - 1);
+                stack.Add(new KeyValuePair<int, string>(ind, m.Groups[2].Value.Trim().Trim('\'', '"')));
+                if (string.Join(".", stack.Select(x => x.Value)) == path) return i;
             }
             return -1;
         }
 
         public static object Get()
         {
-            if (!App.Configured || !File.Exists(FilePath)) return Jsn.D("exists", false, "values", new Dictionary<string, object>());
-            var lines = File.ReadAllLines(FilePath).ToList();
             var vals = new Dictionary<string, object>();
-            foreach (var k in Keys)
-            {
-                var parts = k.Split(new[] { '.' }, 2);
-                int i = Find(lines, parts[0], parts[1]);
-                if (i >= 0) vals[k] = lines[i].Substring(lines[i].IndexOf(':') + 1).Trim().Trim('\'', '"');
-            }
-            return Jsn.D("exists", true, "values", vals);
+            bool any = false;
+            if (App.Configured)
+                foreach (var f in Keys.GroupBy(FileFor))
+                {
+                    if (!File.Exists(f.Key)) continue;
+                    any = true;
+                    var lines = File.ReadAllLines(f.Key).ToList();
+                    foreach (var k in f)
+                    {
+                        int i = Find(lines, k);
+                        if (i >= 0) vals[k] = lines[i].Substring(lines[i].IndexOf(':') + 1).Split('#')[0].Trim().Trim('\'', '"');
+                    }
+                }
+            return Jsn.D("exists", any, "values", vals);
         }
 
         public static void Set(Dictionary<string, string> ch)
         {
-            if (!App.Configured || !File.Exists(FilePath)) throw new Fail("bukkit.yml wasn't found. Start a Paper, Purpur or Spigot server once first.");
-            var lines = File.ReadAllLines(FilePath).ToList();
-            foreach (var kv in ch)
+            if (!App.Configured) throw new Fail("Choose your server folder first.");
+            foreach (var g in ch.GroupBy(kv => FileFor(kv.Key)))
             {
-                if (!Keys.Contains(kv.Key)) throw new Fail("Unknown setting " + kv.Key);
-                if (!Regex.IsMatch(kv.Value ?? "", @"^[A-Za-z0-9.\-]{1,20}$")) throw new Fail("Invalid value for " + kv.Key);
-                var parts = kv.Key.Split(new[] { '.' }, 2);
-                int i = Find(lines, parts[0], parts[1]);
-                if (i < 0) continue;
-                lines[i] = lines[i].Substring(0, lines[i].IndexOf(':') + 1) + " " + kv.Value;
+                if (!File.Exists(g.Key)) throw new Fail(Path.GetFileName(g.Key) + " wasn't found. Start a Paper, Purpur or Spigot server once first.");
+                var lines = File.ReadAllLines(g.Key).ToList();
+                foreach (var kv in g)
+                {
+                    if (!Keys.Contains(kv.Key)) throw new Fail("Unknown setting " + kv.Key);
+                    if (!Regex.IsMatch(kv.Value ?? "", @"^[A-Za-z0-9.\-]{1,20}$")) throw new Fail("Invalid value for " + kv.Key);
+                    int i = Find(lines, kv.Key);
+                    if (i < 0) continue;
+                    lines[i] = lines[i].Substring(0, lines[i].IndexOf(':') + 1) + " " + kv.Value;
+                }
+                File.WriteAllLines(g.Key, lines, new UTF8Encoding(false));
             }
-            File.WriteAllLines(FilePath, lines, new UTF8Encoding(false));
         }
     }
 
@@ -3409,6 +3452,19 @@ namespace Aetheris
 
         static object Ok() { return Jsn.D("ok", true); }
 
+        static long worldBytes = -1; static DateTime worldAt = DateTime.MinValue; static volatile bool sizing;
+        static object DiskInfo()
+        {
+            if (!App.Configured) return null;
+            var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(App.Cfg.ServerDir)));
+            if ((DateTime.Now - worldAt).TotalMinutes > 2 && !sizing)
+            {
+                sizing = true;
+                App.Bg(_ => { try { worldBytes = Worlds.Dims(Props.Get("level-name", "world")).Sum(d => Fs.DirSize(d)); worldAt = DateTime.Now; } finally { sizing = false; } });
+            }
+            return Jsn.D("free", drive.AvailableFreeSpace, "total", drive.TotalSize, "world", worldBytes);
+        }
+
         static T Safe<T>(Func<T> f, T def) { try { return f(); } catch (Exception ex) { App.CrashLog("state", ex); return def; } }
 
         static object State(Req r)
@@ -3434,7 +3490,7 @@ namespace Aetheris
                 "snake", Server.SnakeRules(), "sysram", App.SysRamMb(), "sysfree", App.SysFreeMb(),
                 "icon", Safe(() => App.Configured && File.Exists(Path.Combine(c.ServerDir, "server-icon.png")), false),
                 "loader", Safe(() => Addons.Loader(), "vanilla"), "mc", Safe(() => Addons.McVersion(), ""), "sample", Server.Latest(),
-                "hist", r.Qs("hist") != "" ? (object)Server.History(0) : null, "pending", Server.Pending(), "external", Safe(() => Server.External(), null), "aetheris", Program.Version, "tasks", c.Tasks.Count(t => t.Enabled), "update", Updater.Info());
+                "hist", r.Qs("hist") != "" ? (object)Server.History(0) : null, "pending", Server.Pending(), "external", Safe(() => Server.External(), null), "aetheris", Program.Version, "tasks", c.Tasks.Count(t => t.Enabled), "update", Updater.Info(), "disk", Safe(() => DiskInfo(), null));
         }
 
         static object SaveConfig(Req r)
@@ -3507,6 +3563,7 @@ namespace Aetheris
                         else if (a == "stop") err = Server.Stop(false);
                         else if (a == "restart") err = Server.Stop(true);
                         else if (a == "kill") err = Server.Kill();
+                        else if (a == "restart-warn") err = Server.RestartWithWarning(Math.Max(10, Math.Min(600, (int)Convert.ToDouble(r.S("seconds") == "" ? "60" : r.S("seconds"), CultureInfo.InvariantCulture))));
                         else throw new Fail("Unknown action.");
                         if (err != null) throw new Fail(err);
                         return Ok();

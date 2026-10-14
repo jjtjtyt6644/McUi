@@ -110,7 +110,7 @@ body[data-state=starting] .orb,body[data-state=stopping] .orb{background:#f59e0b
 .addr code{font-family:var(--mono);font-size:14px;background:#ffffff0a;border:1px solid var(--line2);border-radius:8px;padding:4px 10px;user-select:all}
 .hero-act{display:flex;flex-direction:column;align-items:stretch;gap:8px}
 .hero-act .row{justify-content:stretch}.hero-act .row .btn{flex:1}
-.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:16px}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:16px}
 .stat{padding:16px 18px;display:flex;gap:13px;align-items:center;margin:0!important}
 .stat-ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:#8b5cf61a;color:#c4b5fd;flex:none}
 .stat-l{font-size:12px;color:var(--muted);font-weight:500}
@@ -486,6 +486,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <div class="motd" id="heroMotd"></div>
       <div class="addr"><code id="addr">—</code><button class="icon-btn" id="copyAddr" title="Copy address" aria-label="Copy address"><svg class="ic sm"><use href="#i-copy"/></svg></button><span class="badge n" id="playitBadge" hidden>playit</span><span class="badge n" id="loaderBadge"></span></div>
       <div class="qa">
+        <button class="btn ghost sm" id="qaRestartWarn"><svg class="ic sm"><use href="#i-clock"/></svg>Restart with countdown</button>
         <button class="btn ghost sm" id="qaBackup"><svg class="ic sm"><use href="#i-archive"/></svg>Back up now</button>
         <a class="btn ghost sm" data-href="#console" tabindex="0" role="link"><svg class="ic sm"><use href="#i-term"/></svg>Console</a>
         <a class="btn ghost sm" data-href="#mods" tabindex="0" role="link"><svg class="ic sm"><use href="#i-puzzle"/></svg>Mods</a>
@@ -501,6 +502,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
     <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-users"/></svg></div><div><div class="stat-l">Players</div><div class="stat-v" id="stPlayers">0 / 20</div></div></div>
     <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-layers"/></svg></div><div><div class="stat-l">Version</div><div class="stat-v" id="stVersion">—</div></div></div>
     <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-clock"/></svg></div><div><div class="stat-l">Uptime</div><div class="stat-v" id="stUptime">—</div></div></div>
+    <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-archive"/></svg></div><div><div class="stat-l">Disk free</div><div class="stat-v" id="stDisk">—</div><div class="bar"><i id="diskBar"></i></div></div></div>
     <div class="card stat"><div class="stat-ic"><svg class="ic"><use href="#i-gauge"/></svg></div><div><div class="stat-l">PC memory free</div><div class="stat-v" id="stSys">—</div><div class="bar"><i id="sysBar"></i></div></div></div>
   </div>
   <div class="perf">
@@ -521,6 +523,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
   </div>
   <div class="grid2">
     <div class="card"><div class="card-h"><svg class="ic"><use href="#i-users"/></svg><h3>Online players</h3><a data-href="#players" tabindex="0" role="link">Manage</a></div><div id="dashPlayers" class="chips"></div></div>
+    <div class="card" style="grid-column:1/-1"><div class="card-h"><svg class="ic"><use href="#i-users"/></svg><h3>Message everyone</h3></div><form class="addbar" id="bcForm" style="margin:0"><input name="m" placeholder="Type a message: it shows in chat for everyone online" maxlength="200" autocomplete="off"><select name="how" style="width:150px"><option value="say">Chat</option><option value="title">Big title</option><option value="actionbar">Above hotbar</option></select><button class="btn">Send</button></form></div>
     <div class="card"><div class="card-h"><svg class="ic"><use href="#i-term"/></svg><h3>Console</h3><a data-href="#console" tabindex="0" role="link">Open</a></div><div class="mini-term" id="miniTerm"></div></div>
   </div>
 </section>
@@ -739,6 +742,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>Start</td><td>Launches Java with your RAM and Java settings.</td></tr>
 <tr><td>Stop</td><td>Sends <code>stop</code>, which saves every world and shuts down cleanly. Always safe.</td></tr>
 <tr><td>Restart</td><td>Stop, then Start.</td></tr>
+<tr><td>Restart with countdown</td><td>Warns players in chat (“Server restarting in 1 minute!” … 5, 4, 3, 2, 1), saves, then restarts. Daily restarts use a 1-minute countdown too.</td></tr>
 <tr><td>Force stop</td><td>Replaces “Stopping…” if a stop takes longer than 15 seconds. Same as Kill.</td></tr>
 <tr><td>Kill</td><td>Ends the Java process (and anything it started) instantly <b>without saving</b>. Use it only if the server is frozen and Stop doesn't work. You lose progress since the last autosave (every 5 minutes by default).</td></tr>
 <tr><td>Back up now</td><td>Makes a zip backup of the current world. See <a data-href="#guide" tabindex="0" role="link" data-g="g-backups">Backups</a>.</td></tr></table>
@@ -746,6 +750,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <ul>
 <li><b>Server RAM</b> is how much memory the Minecraft (Java) process uses right now, measured the same way as Task Manager's “Memory” column. “of X allocated” is your maximum RAM setting. Java often uses a little more than that because of its own overhead. That's normal.</li>
 <li><b>Server CPU</b> is the share of your whole processor the server uses. 100% means every core is fully busy.</li>
+<li><b>Disk free</b> is the free space on the drive your server is on. Hover it to see how big your world is. Backups need space too.</li>
+<li><b>Message everyone</b> sends a chat message, a big on-screen title, or a line above the hotbar to all online players.</li>
 <li><b>PC memory free</b> is how much RAM Windows has left. If it gets close to zero, the PC starts swapping and everything slows down. Lower the server's RAM or close other programs.</li>
 <li>The graphs cover the last few minutes while the panel is open. Aetheris doesn't record anything while the panel is closed, to keep its RAM and CPU near zero.</li>
 </ul>
@@ -796,6 +802,7 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>Spawn protection</td><td>Radius around spawn where only operators can build. Set it to 0 so everyone can build at spawn.</td></tr>
 <tr><td>Allow the End / Nether</td><td>Whether those dimensions exist. <b>Allow the End</b> only exists on Paper, Purpur and Spigot (in <code>bukkit.yml</code>); Vanilla always has the End.</td></tr>
 <tr><td>Seed / World type</td><td>Only used when a <b>new</b> world is generated. Changing them does nothing to an existing world. Use <a data-href="#worlds" tabindex="0" role="link">Worlds → Reset</a> for that.</td></tr>
+<tr><td>Item despawn time</td><td>How long dropped items last (default 5 min). Only Paper, Purpur and Spigot can change it (<code>spigot.yml</code>). On Vanilla, Fabric and Forge, use the <i>Clear items on a schedule</i> button instead. Also: arrow despawn time, item/XP merge radius and mob spawn range.</td></tr>
 <tr><td>Server port</td><td>The network port (default 25565). Your playit.gg tunnel must point to the same port.</td></tr>
 <tr><td>Command blocks</td><td>Command blocks only work if this is on.</td></tr>
 <tr><td>Operator level</td><td>How powerful <code>/op</code> makes someone. See <a data-href="#guide" tabindex="0" role="link" data-g="g-players">Players</a>.</td></tr></table>
@@ -857,37 +864,33 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>Single biome</td><td>One biome everywhere.</td></tr></table>
 </div>
 
-<div class="gsec" id="g-mods" data-cat="Using the panel" data-title="Mods, plugins & datapacks">
-<h2><svg class="ic"><use href="#i-puzzle"/></svg>Mods, plugins &amp; datapacks</h2>
-<table><tr><th></th><th>Mods</th><th>Plugins</th><th>Datapacks</th></tr>
-<tr><td>Needs</td><td>Fabric, Quilt, Forge or NeoForge server</td><td>Paper, Purpur or Spigot server</td><td>Any server, including Vanilla</td></tr>
-<tr><td>Folder</td><td><code>mods/</code></td><td><code>plugins/</code></td><td><code>world/datapacks/</code></td></tr>
-<tr><td>Players need it too?</td><td>Usually yes, the same mods and versions. Server-only mods (like Lithium) don't need to be installed by players.</td><td>No, players join with plain Minecraft.</td><td>No.</td></tr>
-<tr><td>File type</td><td><code>.jar</code></td><td><code>.jar</code></td><td><code>.zip</code> or folder</td></tr></table>
-<h4>Adding them</h4>
+<div class="gsec" id="g-mods" data-cat="Using the panel" data-title="Mods, packs & datapacks">
+<h2><svg class="ic"><use href="#i-puzzle"/></svg>Mods, resource packs, shader packs &amp; datapacks</h2>
+<p class="lead">Like Prism Launcher: four tabs, one page.</p>
+<table><tr><th>Tab</th><th>What it is</th><th>Who uses it</th></tr>
+<tr><td><b>Mods</b></td><td>Fabric/Forge/NeoForge mods (<code>mods/</code>). On Paper, Purpur or Spigot, this tab shows your <b>plugins</b> (<code>plugins/</code>).</td><td>Server, and usually players too</td></tr>
+<tr><td><b>Resource packs</b></td><td>Textures and sounds (<code>resourcepacks/</code>)</td><td>Players: included in the client modpack</td></tr>
+<tr><td><b>Shader packs</b></td><td>Shaders (<code>shaderpacks/</code>). Players need Iris (Fabric) or Oculus/OptiFine.</td><td>Players: included in the client modpack</td></tr>
+<tr><td><b>Datapacks</b></td><td>Recipes, loot and functions for the world (<code>world/datapacks/</code>)</td><td>Server only. Works on Vanilla too.</td></tr></table>
+<p>Fabric, Forge and NeoForge mods are <b>not interchangeable</b>: a Forge mod only works on a Forge server, and so on. On Vanilla, the Mods page offers <b>Switch to Fabric</b> for your exact Minecraft version, and your world is kept.</p>
+<h4>Adding things</h4>
 <ul>
-<li><b>Drag and drop</b> files onto the Mods page, or click <i>Upload</i>.</li>
-<li><b>.jar:</b> copied into the folder.</li>
-<li><b>.zip of jars:</b> every <code>.jar</code> inside is extracted.</li>
-<li><b>Server pack .zip</b> (contains a <code>mods/</code> or <code>plugins/</code> folder): the whole pack is extracted into your server folder, configs included.</li>
-<li><b>.mrpack</b> (Modrinth modpack): Aetheris downloads every server-side mod in it and applies its config overrides. It then tells you which loader and version the pack needs. Install that in <a data-href="#software" tabindex="0" role="link">Software</a>.</li>
-<li><b>CurseForge:</b> choose CurseForge as the source in the browser. CurseForge only allows downloads with an API key: paste your free key from <b>console.curseforge.com</b> in Settings. With a key, you can also upload CurseForge modpack zips (the ones with a <code>manifest.json</code>). The pack's “Server Pack” zip works without a key.</li>
-<li><b>Browse Modrinth:</b> search and click Install. Only versions that match your Minecraft version and loader are shown. Required dependencies (like Fabric API) are installed automatically.</li>
+<li><b>Drag and drop</b> files onto the page, or click Upload: <code>.jar</code>, <code>.zip</code> (loose jars or a whole server pack with configs), Modrinth <code>.mrpack</code> and CurseForge modpack zips.</li>
+<li><b>Browse → Modrinth:</b> search and click Install. Only versions for your Minecraft version and loader are installed.</li>
+<li><b>Browse → CurseForge:</b> <b>no key needed</b> to add by link. Open the mod on curseforge.com, copy its address, paste it and click <i>Add from link</i>. Aetheris picks the right file. Searching CurseForge inside Aetheris needs a free API key (Settings → CurseForge), because CurseForge only allows search through its official API.</li>
 </ul>
-<h4>Making mods work (Vanilla → Fabric)</h4>
-<p>Fabric, Forge and NeoForge mods are <b>not interchangeable</b>: a Forge mod only works on a Forge server, and so on. Choose the loader your mods (or modpack) are made for. You can install Forge or NeoForge from <a data-href="#software" tabindex="0" role="link">Software</a>; their official installer runs for you.</p>
-<p>A plain <code>server.jar</code> is Vanilla, and Vanilla ignores the <code>mods</code> folder. On the Mods page, click <b>Switch to Fabric</b>. Aetheris downloads Fabric for <b>your exact Minecraft version</b> (read from your server jar), and your world and settings stay. Restart, and the mods load.</p>
+<h4>Mods that need other mods</h4>
+<ul>
+<li>Aetheris reads what every mod requires: <code>fabric.mod.json</code> for Fabric, <code>mods.toml</code> for Forge/NeoForge, and <code>depend:</code> for plugins. Mods bundled <b>inside</b> another mod (jar-in-jar, e.g. Camerapture's Tapestry) count as installed.</li>
+<li>When you install a mod that needs others, an <b>Install required mods</b> window appears. Each one is looked up on Modrinth first, then CurseForge. Click <i>Install selected</i>, and it repeats if those need more.</li>
+<li>Before <b>Start</b>, Aetheris warns you if something is still missing. A red <span class="badge r">needs …</span> badge marks the mod on the page.</li>
+<li>If a required mod can't be found automatically (its download name differs from its ID), use the Search links in the window, then paste its CurseForge link or upload the jar.</li>
+</ul>
 <h4>Everyone needs the same mods</h4>
-<p>Mods that add things (blocks, items, mobs…) must also be installed by every player, in the same version, or they can't join. The labels show which is which: <span class="badge">players need it</span>, <span class="badge g">optional for players</span> (works without it on the player's side, e.g. Lithium), <span class="badge n">server only</span> (players don't need it, e.g. Chunky) and <span class="badge y">client only</span> (does nothing on a server, so remove it). <span class="badge r">needs MC …</span> means the mod was made for a different Minecraft version and will probably crash the server.</p>
-<p>Click <b>Make client modpack</b> to give everyone the exact set:</p>
-<ul>
-<li><b>.mrpack:</b> friends import this one file into the <b>Modrinth App</b>, <b>Prism Launcher</b> or the <b>CurseForge app</b>. It installs the right Minecraft version, Fabric and all the mods automatically.</li>
-<li><b>.zip:</b> the mod files plus a “HOW TO INSTALL.txt” for manual setup.</li>
-</ul>
-<p>Server-only mods and mods that are optional for players (according to Modrinth) are left out of the pack. Make a new pack whenever you add or update mods, and send it again.</p>
+<p>Labels: <span class="badge">players need it</span>, <span class="badge g">optional for players</span>, <span class="badge n">server only</span>, <span class="badge y">client only</span> (does nothing on a server). <span class="badge r">needs MC …</span> means it was made for another Minecraft version. <b>Make client modpack</b> builds a <code>.mrpack</code> (import into the Modrinth App, Prism or CurseForge) and a <code>.zip</code>. They contain the mods players need, their libraries, and your resource and shader packs.</p>
 <h4>Managing</h4>
-<p>The switch next to each item enables or disables it. Disabled files are renamed to <code>.disabled</code> and the server ignores them. Mod names and versions are read from inside each jar. Changes apply after a restart. Datapacks can also be reloaded live with the <code>reload</code> command.</p>
-<div class="warn">A mod made for a different Minecraft version or loader is the #1 cause of crashes on start. If the server crashes after adding something, disable the newest file and restart.</div>
+<p>The switch next to each item enables or disables it (the file is renamed to <code>.disabled</code>). Changes apply after a restart. Datapacks can also be reloaded live with <code>reload</code>.</p>
+<div class="warn">Switching a world from <b>Paper to Fabric/Forge</b>: Paper stores worlds differently. Aetheris makes a backup (“before-switch”) and converts the world automatically, both when you switch and on Start. Paper's own files are kept, so switching back works too.</div>
 </div>
 
 <div class="gsec" id="g-backups" data-cat="Using the panel" data-title="Backups">
@@ -1142,6 +1145,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 <tr><td>“Failed to verify username”</td><td>A cracked player on a premium-only server. Turn off <i>Premium accounts only</i>, or use a premium account.</td></tr>
 <tr><td>Kicked for chat / “invalid signature”</td><td>Turn off <i>Require secure chat</i>.</td></tr>
 <tr><td>Restart loops after a crash</td><td>After 3 crashes in 10 minutes, Aetheris stops trying. Read the red lines in the console or download the log.</td></tr>
+<tr><td>“Overworld settings missing” after switching from Paper</td><td>Update Aetheris and press Start: the Paper world is converted automatically (backup first). Or switch back to Paper in Software.</td></tr>
+<tr><td>A mod says it “needs” another mod</td><td>Click <i>Find them</i> on the Mods page (or <i>Install missing mods</i> when starting) and install what's listed.</td></tr>
 <tr><td>“A Minecraft server is already running outside Aetheris”</td><td>Something else (a server started from cmd, or one left over after Aetheris was force-closed) is using the server port. Click <b>Stop it safely</b> (saves the world) or <b>Force kill</b>, then start your server normally.</td></tr>
 <tr><td>Stuck on “Stopping…”</td><td>Aetheris waits up to 90 seconds for the world to save. After 15 seconds, the button turns into <b>Force stop</b>, which ends Java and everything it started. After 90 seconds, this happens automatically.</td></tr>
 <tr><td>“An older copy of Aetheris is already running”</td><td>Click <b>Yes</b> to switch: the old copy's server is saved and stopped, the old copy closes, and the new one starts the server again.</td></tr>
@@ -1414,6 +1419,7 @@ function renderPerf(s){
   $('#cpuBar').style.width=(off?0:Math.min(100,s.cpu))+'%';
   $('#cpuCores').textContent=navigator.hardwareConcurrency?navigator.hardwareConcurrency+' threads':'';
   $('#stRam').title=!off&&s.sample&&s.sample.procs>1?`Java + ${s.sample.procs-1} child process${s.sample.procs>2?'es':''} (measured together)`:'Private memory of the server process (same as Task Manager)';
+  const dk=s.disk;if(dk){$('#stDisk').textContent=gb(dk.free/1048576);$('#stDisk').title=`${gb(dk.free/1048576)} free of ${gb(dk.total/1048576)}${dk.world>=0?' · world uses '+gb(dk.world/1048576):''}`;$('#diskBar').style.width=(100-dk.free/dk.total*100)+'%'}
   const free=s.sysfree||0;$('#stSys').textContent=free?gb(free):'—';$('#stSys').title=`${gb(free)} free of ${gb(s.sysram)}`;
   $('#sysBar').style.width=(s.sysram?100-free/s.sysram*100:0)+'%';
   $('#sideRam').textContent=off?'—':`${gb(s.ram)} / ${gb(s.xmx)}`;$('#sideRamBar').style.width=Math.min(100,pct)+'%';
@@ -1427,6 +1433,17 @@ function renderPerf(s){
   }
 }
 $('#qaBackup').onclick=e=>busy(e.currentTarget,async()=>{toast('Creating backup…','info');await api('backups',{op:'create',label:''});toast('Backup created.','ok',{label:'View',fn:()=>location.hash='#backups'})});
+$('#qaRestartWarn').onclick=async e=>{
+  if(S.state.state!=='online')return toast('The server is not online.','err');
+  const r=await modal({title:'Restart with countdown',ok:'Start countdown',html:`<p>Players see “Server restarting in …” in chat, then the server saves and restarts.</p><div class="fld"><label class="f">Countdown</label><select name="s" style="width:100%"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option></select></div>`});
+  if(r)busy(e.currentTarget,async()=>{await api('power',{action:'restart-warn',seconds:+r.s});toast('Countdown started.','info')});
+};
+$('#bcForm').onsubmit=async e=>{
+  e.preventDefault();const m=e.target.m.value.trim(),how=e.target.how.value;if(!m)return;
+  const json=JSON.stringify({text:m,color:'gold'});
+  const cmd=how==='say'?'say '+m:how==='title'?'title @a title '+json:'title @a actionbar '+json;
+  try{await api('cmd',{cmd});toast('Sent to everyone online.');e.target.m.value=''}catch(er){toast(er.message,'err')}
+};
 $('#qaFolder').onclick=()=>api('openfolder',{path:''}).catch(e=>toast(e.message,'err'));
 
 /* ---------- power ---------- */
@@ -1592,6 +1609,13 @@ const OPT=[
   {k:'resource-pack',ty:'text',l:'Resource pack URL',d:'Direct download link to a .zip (optional).',def:''},
   {k:'require-resource-pack',ty:'bool',l:'Require resource pack',def:'false'},
  ]},
+ {t:'Items & entities',i:'box',items:[
+  {k:'bk:world-settings.default.item-despawn-rate',ty:'ticks',l:'Item despawn time',d:'How long dropped items stay on the ground before they disappear. Default 300 s (5 minutes). Lower = less lag.',min:1,max:3600,def:'6000',bk:1,bkNote:'Only Paper, Purpur and Spigot can change this. Vanilla, Fabric and Forge always use 5 minutes. Use a schedule that clears dropped items instead.',bkAct:1},
+  {k:'bk:world-settings.default.arrow-despawn-rate',ty:'ticks',l:'Arrow despawn time',d:'How long arrows stuck in blocks stay. Default 60 s.',min:1,max:3600,def:'1200',bk:1},
+  {k:'bk:world-settings.default.merge-radius.item',ty:'num',l:'Item merge radius',d:'Dropped items this many blocks apart merge into one stack, which means fewer entities and less lag. Spigot default 0.5; raising it to 2–3 helps farms.',min:-1,max:16,step:0.5,def:'0.5',bk:1},
+  {k:'bk:world-settings.default.merge-radius.exp',ty:'num',l:'XP orb merge radius',d:'XP orbs this close merge together. -1 = off (Spigot default).',min:-1,max:16,step:0.5,def:'-1.0',bk:1},
+  {k:'bk:world-settings.default.mob-spawn-range',ty:'num',l:'Mob spawn range',d:'How far from players (in chunks) mobs can spawn. Lower = less lag. Default 8.',min:1,max:16,def:'8',bk:1},
+ ]},
  {t:'Paper / Spigot',i:'puzzle',bkOnly:1,items:[
   {k:'bk:spawn-limits.monsters',ty:'num',l:'Monster spawn limit',d:'Max hostile mobs per player area. Lower = less lag (vanilla 70).',min:0,max:500,def:'70'},
   {k:'bk:spawn-limits.animals',ty:'num',l:'Animal spawn limit',min:0,max:500,def:'10'},
@@ -1606,12 +1630,13 @@ const orig=(k,def)=>k.startsWith('bk:')?(S.bk&&S.bk.values[k.slice(3)]!==undefin
 const pv=(k,def)=>k in S.dirty?S.dirty[k]:orig(k,def);
 function optCtl(o){
   const v=pv(o.k,o.def);
-  if(o.bk&&!(S.bk&&S.bk.exists))return `<span class="sw" title="Needs Paper, Purpur or Spigot"><input type="checkbox" checked disabled aria-label="${esc(o.l)}"><span></span></span>`;
+  if(o.bk&&!(S.bk&&S.bk.exists))return o.bkAct?`<button type="button" class="btn ghost sm" data-clearitems>${ic('clock')}Clear items on a schedule</button>`:o.ty==='bool'?`<span class="sw" title="Needs Paper, Purpur or Spigot"><input type="checkbox" checked disabled aria-label="${esc(o.l)}"><span></span></span>`:`<span class="dim" style="font-size:12.5px">Paper/Spigot only</span>`;
   switch(o.ty){
     case 'icon':return `<div class="row"><span class="icon-prev">${S.state.icon?`<img src="/api/icon?v=${S.iconV}" width="64" height="64" alt="" style="border-radius:10px;image-rendering:pixelated">`:ic('image','')}</span><div style="display:flex;flex-direction:column;gap:6px"><label class="btn ghost sm" style="cursor:pointer">${ic('up')}Upload<input type="file" accept="image/*" id="iconFile" hidden></label>${S.state.icon?`<button type="button" class="btn ghost sm danger-t" id="iconDel">${ic('trash')}Remove</button>`:''}</div></div>`;
     case 'bool':return `<span class="sw"><input type="checkbox" data-k="${o.k}" ${v==='true'?'checked':''} aria-label="${esc(o.l)}"><span></span></span>`;
     case 'seg':return `<div class="seg" data-k="${o.k}" role="radiogroup" aria-label="${esc(o.l)}">${o.o.map(x=>`<button type="button" role="radio" aria-checked="${x===v}" class="${x===v?'on':''}" data-v="${x}">${x}</button>`).join('')}</div>`;
-    case 'num':return `<input type="number" data-k="${o.k}" value="${esc(v)}" min="${o.min}" max="${o.max}" aria-label="${esc(o.l)}">`;
+    case 'num':return `<input type="number" data-k="${o.k}" value="${esc(v)}" min="${o.min}" max="${o.max}"${o.step?` step="${o.step}"`:''} aria-label="${esc(o.l)}">`;
+    case 'ticks':return `<div class="row" style="gap:6px;flex-wrap:nowrap"><input type="number" data-k="${o.k}" data-ticks="1" value="${Math.round((+v||0)/20)}" min="${o.min}" max="${o.max}" aria-label="${esc(o.l)} in seconds"><span class="dim">sec</span></div>`;
     case 'rng':return `<div class="rng"><input type="range" data-k="${o.k}" value="${esc(v)}" min="${o.min}" max="${o.max}" step="${o.step||1}" aria-label="${esc(o.l)}"><output>${esc(v)}</output></div>`;
     case 'sel':{const opts=o.o.some(x=>x[0]===v)?o.o:o.o.concat([[v,v]]);return `<select data-k="${o.k}" aria-label="${esc(o.l)}">${opts.map(x=>`<option value="${esc(x[0])}" ${x[0]===v?'selected':''}>${esc(x[1])}</option>`).join('')}</select>`}
     case 'text':return `<input data-k="${o.k}" value="${esc(v)}" style="width:230px" spellcheck="false" aria-label="${esc(o.l)}">`;
@@ -1623,7 +1648,7 @@ function renderOptions(){
      <textarea data-k="motd" rows="2" spellcheck="false" style="width:100%;font-family:var(--mono)" aria-label="MOTD">${esc(pv('motd',o.def))}</textarea>
      <div class="motd-tools" id="motdTools">${Object.entries(MC).map(([k,c])=>`<button type="button" data-c="${k}" style="background:${c}" title="§${k}" aria-label="Color ${k}"></button>`).join('')}<button type="button" data-c="l" title="Bold">B</button><button type="button" data-c="o" title="Italic" style="font-style:italic">I</button><button type="button" data-c="n" title="Underline" style="text-decoration:underline">U</button><button type="button" data-c="m" title="Strikethrough" style="text-decoration:line-through">S</button><button type="button" data-c="r" title="Reset" style="width:auto;padding:0 6px">reset</button></div>
      <div class="motd-prev"><div class="pi">${S.state.icon?`<img src="/api/icon?v=${S.iconV}" width="40" height="40" alt="" style="border-radius:4px;image-rendering:pixelated">`:'<svg width="28" height="28"><use href="#logo"/></svg>'}</div><div><div class="nm">Minecraft Server</div><div id="motdPrev"></div></div></div></div>`
-   :`<div class="opt ${o.k in S.dirty?'dirty':''}" data-row="${o.k}"><div class="opt-l"><b>${o.l}</b>${o.bk&&!(S.bk&&S.bk.exists)?`<small>Needs Paper, Purpur or Spigot. Vanilla servers always have the End.</small>`:o.d?`<small>${o.d}</small>`:''}${o.ty==='icon'?'':`<code>${o.k.startsWith('bk:')?'bukkit.yml → '+o.k.slice(3):o.k}</code>`}</div>${optCtl(o)}</div>`).join('')}</div>`).join('');
+   :`<div class="opt ${o.k in S.dirty?'dirty':''}" data-row="${o.k}"><div class="opt-l"><b>${o.l}</b>${o.bk&&!(S.bk&&S.bk.exists)?`<small>${o.bkNote||'Needs Paper, Purpur or Spigot. Vanilla servers always have the End.'}</small>`:o.d?`<small>${o.d}</small>`:''}${o.ty==='icon'?'':`<code>${o.k.startsWith('bk:')?(o.k.startsWith('bk:world-settings.')?'spigot.yml → ':'bukkit.yml → ')+o.k.slice(3):o.k}</code>`}</div>${optCtl(o)}</div>`).join('')}</div>`).join('');
   const others=Object.keys(S.props||{}).filter(k=>!OPTKEYS.has(k));
   $('#rawProps').innerHTML=others.length?others.map(k=>`<label for="rp-${esc(k)}" title="${esc(k)}">${esc(k)}</label><input id="rp-${esc(k)}" data-k="${esc(k)}" value="${esc(pv(k,''))}" spellcheck="false">`).join(''):'<span class="muted">The rest appear here after the server has started once.</span>';
   $('#motdPrev').innerHTML=motdHtml(pv('motd','A Minecraft Server'));
@@ -1639,7 +1664,7 @@ function updDirty(){const n=Object.keys(S.dirty).length;$('#saveBar').hidden=!n;
 const optsSec=$('[data-page=options]');
 optsSec.addEventListener('input',e=>{
   const el=e.target.closest('[data-k]');if(!el||el.classList.contains('seg'))return;
-  const v=el.type==='checkbox'?String(el.checked):el.value;
+  const v=el.type==='checkbox'?String(el.checked):el.dataset.ticks?String(Math.round((+el.value||0)*20)):el.value;
   if(el.type==='range')el.nextElementSibling.textContent=v;
   if(el.dataset.k==='motd')$('#motdPrev').innerHTML=motdHtml(v);
   setDirty(el.dataset.k,v);
@@ -1662,6 +1687,7 @@ optsSec.addEventListener('change',async e=>{
   }catch(er){toast(er.message||'That image could not be read.','err')}
 });
 optsSec.addEventListener('click',async e=>{
+  if(e.target.closest('[data-clearitems]')){location.hash='#schedules';setTimeout(()=>editTask({Id:'',Enabled:true,...TPL[2]},true),300);return}
   if(!e.target.closest('#iconDel'))return;
   try{await api('icon',undefined,'DELETE');await poll();renderOptions();toast('Server icon removed.')}catch(er){toast(er.message,'err')}
 });
