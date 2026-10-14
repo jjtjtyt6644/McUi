@@ -23,14 +23,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.6.1.0")]
-[assembly: AssemblyFileVersion("1.6.1.0")]
+[assembly: AssemblyVersion("1.6.2.0")]
+[assembly: AssemblyFileVersion("1.6.2.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.6.1";
+        public const string Version = "1.6.2";
 
         // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
         static void WriteRuntimeConfig()
@@ -1095,6 +1095,8 @@ namespace Aetheris
                 AddLine(line);
                 if (State == "starting" && DoneRe.IsMatch(line)) { State = "online"; changed = true; }
                 if ((m = VerRe.Match(line)).Success) Version = m.Groups[1].Value;
+                if (line.Contains("Overworld settings missing") || line.Contains("Failed to load datapacks, can't proceed"))
+                    AddLine("[Aetheris] This world can't be loaded by this server software. If you just switched from Paper/Purpur/Spigot, switch back in Software (the world is unchanged), or restore the backup Aetheris made before the switch (Backups, label \"before-switch\").");
                 if ((m = JoinRe.Match(line)).Success)
                 {
                     var n = m.Groups[1].Value;
@@ -1754,6 +1756,34 @@ namespace Aetheris
         {
             var dir = App.Cfg.ServerDir;
             return new[] { name, name + "_nether", name + "_the_end" }.Select(x => Path.Combine(dir, x)).Where(Directory.Exists).ToList();
+        }
+
+        static bool IsBukkit(string loader) { return System.Text.RegularExpressions.Regex.IsMatch(loader ?? "", "paper|purpur|spigot|bukkit|folia"); }
+
+        // Paper keeps the Nether/End in world_nether/DIM-1 and world_the_end/DIM1; Vanilla, Fabric and Forge expect
+        // world/DIM-1 and world/DIM1. Called after the server software changed. Backs up first.
+        public static void AfterSoftwareChange(string oldLoader)
+        {
+            var now = Addons.Loader();
+            if (!IsBukkit(oldLoader) || IsBukkit(now)) return;
+            var dir = App.Cfg.ServerDir;
+            var level = Props.Get("level-name", "world");
+            var main = Path.Combine(dir, level);
+            if (!Directory.Exists(main)) return;
+            try { Backups.Create("before-switch", false); } catch (Exception ex) { Server.Log("Backup before switching failed: " + ex.Message); }
+            foreach (var pair in new[] { new[] { "_nether", "DIM-1" }, new[] { "_the_end", "DIM1" } })
+            {
+                var bukkitDim = Path.Combine(dir, level + pair[0]);
+                var src = Path.Combine(bukkitDim, pair[1]);
+                var dst = Path.Combine(main, pair[1]);
+                try
+                {
+                    if (Directory.Exists(src) && !Directory.Exists(dst)) { Directory.Move(src, dst); Server.Log("Moved " + level + pair[0] + "/" + pair[1] + " → " + level + "/" + pair[1] + " (Vanilla layout)."); }
+                    if (Directory.Exists(bukkitDim)) Directory.Move(bukkitDim, bukkitDim + ".from-paper");   // kept, out of the way
+                }
+                catch (Exception ex) { Server.Log("Couldn't convert " + level + pair[0] + ": " + ex.Message); }
+            }
+            Server.Log("World converted from the Paper layout to the Vanilla layout for " + now + ". A backup was made first (Backups → \"before-switch\").");
         }
 
         public static object List()
@@ -3309,7 +3339,9 @@ namespace Aetheris
                     {
                         var name = r.S("name");
                         if (!App.Configured || !Regex.IsMatch(name, @"^[^\\/:*?""<>|]+\.jar$") || !File.Exists(Path.Combine(c.ServerDir, name))) throw new Fail("Jar not found.");
+                        var before = Addons.Loader();
                         c.Jar = name; c.Save();
+                        Worlds.AfterSoftwareChange(before);
                         Server.NeedRestart("server software");
                         return Ok();
                     }
@@ -3320,14 +3352,18 @@ namespace Aetheris
 
                 case "/api/install":
                     {
+                        var before = Addons.Loader();
                         var res = Jsn.D("ok", true, "name", Net.Install(r.S("url"), r.S("name")));
+                        Worlds.AfterSoftwareChange(before);
                         Server.NeedRestart("server software");
                         return res;
                     }
 
                 case "/api/install-loader":
                     {
+                        var before = Addons.Loader();
                         var res = Loaders.Install(r.S("loader"), r.S("version"), r.S("mc"));
+                        Worlds.AfterSoftwareChange(before);
                         Server.NeedRestart("server software");
                         return res;
                     }

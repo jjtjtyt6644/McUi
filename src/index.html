@@ -1840,7 +1840,7 @@ function mBanner(){
 $('#mSwitch').onclick=e=>{
   const to=e.currentTarget.dataset.to,mc=S.state.mc;
   busy(e.currentTarget,async()=>{
-    if(!await confirmBox(`Switch to ${to==='fabric'?'Fabric':'Paper'} ${esc(mc)}?`,`Aetheris downloads ${to==='fabric'?'Fabric':'Paper'} for Minecraft <b>${esc(mc)}</b> and uses it on the next start. Your world and settings stay. You can switch back any time in Software.${to==='fabric'?' Players will also need Fabric and the same mods. Use “Make client modpack” after adding mods.':''}`,false,'Switch'))return;
+    if(!await confirmBox(`Switch to ${to==='fabric'?'Fabric':'Paper'} ${esc(mc)}?`,`Aetheris downloads ${to==='fabric'?'Fabric':'Paper'} for Minecraft <b>${esc(mc)}</b> and uses it on the next start. Your world and settings stay. Coming from Paper, Aetheris first makes a backup and moves the Nether and End into the Vanilla layout. You can switch back any time in Software.${to==='fabric'?' Players will also need Fabric and the same mods. Use “Make client modpack” after adding mods.':''}`,false,'Switch'))return;
     toast(`Downloading ${to} ${mc}…`,'info');
     if(to==='paper')await SW.paper.list();
     const url=await SW[to].url(mc);
