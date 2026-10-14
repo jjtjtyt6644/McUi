@@ -23,14 +23,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.8.0.0")]
-[assembly: AssemblyFileVersion("1.8.0.0")]
+[assembly: AssemblyVersion("1.8.1.0")]
+[assembly: AssemblyFileVersion("1.8.1.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.8.0";
+        public const string Version = "1.8.1";
 
         // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
         static void WriteRuntimeConfig()
@@ -913,7 +913,19 @@ namespace Aetheris
                     if (len <= 0 || len > 1 << 20) return null;
                     var buf = new byte[len]; int off = 0;
                     while (off < len) { int n = s.Read(buf, off, len - off); if (n <= 0) return null; off += n; }
-                    return Jsn.S.DeserializeObject(Encoding.UTF8.GetString(buf)) as Dictionary<string, object>;
+                    var result = Jsn.S.DeserializeObject(Encoding.UTF8.GetString(buf)) as Dictionary<string, object>;
+                    try
+                    {
+                        // ping (0x01 + long) -> pong, like the multiplayer screen does; then a clean close
+                        var ping = new byte[] { 9, 1, 0, 0, 0, 0, 0, 0, 0, 42 };
+                        s.Write(ping, 0, ping.Length);
+                        var pong = new byte[10]; int got = 0;
+                        while (got < 10) { int n = s.Read(pong, got, 10 - got); if (n <= 0) break; got += n; }
+                        c.Client.Shutdown(SocketShutdown.Send);
+                        var rest = new byte[64]; while (c.Client.Receive(rest) > 0) { }
+                    }
+                    catch { }
+                    return result;
                 }
             }
             catch { return null; }
@@ -1079,9 +1091,17 @@ namespace Aetheris
             return null;
         }
 
+        static int hideStack; static DateTime lastNetNote = DateTime.MinValue; static int netHidden;
+        static readonly Regex NetNoise = new Regex(@"Error sending packet clientbound/minecraft:disconnect|Sending unknown packet 'clientbound/minecraft:disconnect'");
+        static readonly Regex StackLine = new Regex(@"^\s*(at |\.\.\. \d+ more|Caused by: |io\.netty\.|java\.(io|net)\.\w*Exception)");
+
         static void OnLine(string raw)
         {
             string line = Ansi.Replace(raw, "");
+            // A connection that drops mid-handshake (server-list ping, port scan, tunnel check) makes Minecraft print a
+            // huge, harmless stack trace. Show one short line instead; the full text stays in logs/latest.log.
+            if (NetNoise.IsMatch(line)) { hideStack = 1; netHidden++; if ((DateTime.Now - lastNetNote).TotalMinutes >= 5) { lastNetNote = DateTime.Now; Log("Hid a harmless network error: a connection dropped while connecting (server-list ping, port scan or tunnel check). Players aren't affected. Details: logs/latest.log" + (netHidden > 1 ? " (" + netHidden + " so far)" : "") + "."); } return; }
+            if (hideStack > 0) { if (StackLine.IsMatch(line) || line.Trim() == "") return; hideStack = 0; }
             bool changed = false;
             lock (L)
             {
@@ -1279,29 +1299,8 @@ namespace Aetheris
             do { byte b = (byte)(u & 0x7F); u >>= 7; if (u != 0) b |= 0x80; l.Add(b); } while (u != 0);
         }
 
-        // Minecraft "server list ping": true if the server answers a status request.
-        public static bool Ping(string host, int port, int timeoutMs)
-        {
-            try
-            {
-                using (var c = new TcpClient())
-                {
-                    var ar = c.BeginConnect(host, port, null, null);
-                    if (!ar.AsyncWaitHandle.WaitOne(timeoutMs)) return false;
-                    c.EndConnect(ar);
-                    c.ReceiveTimeout = timeoutMs; c.SendTimeout = timeoutMs;
-                    var body = new List<byte>();
-                    VarInt(body, 0); VarInt(body, -1);
-                    var hb = Encoding.UTF8.GetBytes(host); VarInt(body, hb.Length); body.AddRange(hb);
-                    body.Add((byte)(port >> 8)); body.Add((byte)port); VarInt(body, 1);
-                    var pkt = new List<byte>(); VarInt(pkt, body.Count); pkt.AddRange(body); pkt.Add(1); pkt.Add(0);
-                    var s = c.GetStream();
-                    s.Write(pkt.ToArray(), 0, pkt.Count);
-                    return s.ReadByte() >= 0;
-                }
-            }
-            catch { return false; }
-        }
+        // Minecraft "server list ping": true if the server answers a status request (done politely, see Status).
+        public static bool Ping(string host, int port, int timeoutMs) { return Status(host, port, timeoutMs) != null; }
 
         public static bool EnsurePlayit()
         {
