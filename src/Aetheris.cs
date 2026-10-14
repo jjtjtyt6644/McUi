@@ -23,14 +23,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.6.0.0")]
-[assembly: AssemblyFileVersion("1.6.0.0")]
+[assembly: AssemblyVersion("1.6.1.0")]
+[assembly: AssemblyFileVersion("1.6.1.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.6.0";
+        public const string Version = "1.6.1";
 
         // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
         static void WriteRuntimeConfig()
@@ -72,23 +72,28 @@ namespace Aetheris
             var mutex = new Mutex(true, "Local\\AetherisPanel_" + Fnv(AppDomain.CurrentDomain.BaseDirectory.ToLowerInvariant()), out created);
             App.Cfg = Config.Load();
             bool startServerAfter = false;
+            if (!created || args.Length > 0) App.Trace("start args=[" + string.Join(" ", args) + "] firstInstance=" + created + " port=" + App.Cfg.Port);
 
             if (!created)
             {
                 // Aetheris from this folder is already running. If it's an older version, offer to replace it.
                 var other = Instances.Probe(App.Cfg.Port);
-                if (other == null || !Instances.IsOlder(other.Version)) { App.OpenUi(); return; }
+                App.Trace("probe: " + (other == null ? "no answer" : other.Version + " state=" + other.State));
+                if (other == null || !Instances.IsOlder(other.Version)) { App.Trace("opening the running copy instead"); App.OpenUi(); return; }
                 if (!Instances.AskTakeover(other, true)) { App.OpenUi(); return; }
-                if (!Instances.Takeover(other, out startServerAfter)) return;
-                try { mutex.WaitOne(20000); } catch (AbandonedMutexException) { }
+                if (!Instances.Takeover(other, out startServerAfter)) { App.Trace("takeover failed"); return; }
+                bool got;
+                try { got = mutex.WaitOne(20000); } catch (AbandonedMutexException) { got = true; }
+                App.Trace("takeover done, mutex=" + got + ", restart server=" + startServerAfter);
             }
 
             int port = App.Cfg.Port;
             for (int attempt = 0; ; attempt++)
             {
                 try { Http.Start(port); break; }
-                catch (SocketException)
+                catch (SocketException ex)
                 {
+                    App.Trace("port " + port + " busy: " + ex.Message);
                     var other = Instances.Probe(port);
                     if (other != null && attempt == 0)
                     {
@@ -113,6 +118,7 @@ namespace Aetheris
             }
             if (port != App.Cfg.Port) { App.Cfg.Port = port; try { App.Cfg.Save(); } catch { } }
             if (startServerAfter) App.Cfg.AutoStartOnce = true;
+            if (!created || args.Length > 0) App.Trace("running on port " + port);
             Application.Run(new Tray(!trayOnly && App.Cfg.OpenOnLaunch));
             GC.KeepAlive(mutex);
         }
@@ -219,14 +225,21 @@ namespace Aetheris
                 });
                 f.ShowDialog();
             }
-            if (error != null) MessageBox.Show("Couldn't close the other Aetheris:\n" + error + "\n\nExit it from its tray icon and try again.", "Aetheris", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            if (error != null) App.Trace("takeover error: " + error);
+            if (error != null && Net2.ListenerPid(o.Port) == 0) return true;   // it closed anyway
+            if (error != null && !AutoReplace) MessageBox.Show("Couldn't close the other Aetheris:\n" + error + "\n\nExit it from its tray icon and try again.", "Aetheris", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return error == null;
         }
 
         static string DoTakeover(OtherInstance o, bool running)
         {
             int pid = Net2.ListenerPid(o.Port);
-            if (o.CanShutdown) Get(o.Port, "/api/shutdown", "{}");
+            App.Trace("takeover: old pid " + pid + ", asking it to " + (o.CanShutdown ? "shut down" : "stop its server"));
+            if (o.CanShutdown)
+            {
+                try { Get(o.Port, "/api/shutdown", "{}"); }
+                catch (Exception ex) { App.Trace("takeover: shutdown reply cut off (" + ex.Message + "), old copy is closing"); }
+            }
             else
             {
                 if (running)
@@ -246,9 +259,10 @@ namespace Aetheris
             var end = DateTime.Now.AddSeconds(130);
             while (Net2.ListenerPid(o.Port) != 0)
             {
-                if (DateTime.Now > end) return "it didn't close in time.";
+                if (DateTime.Now > end) { App.Trace("takeover: port still held by pid " + Net2.ListenerPid(o.Port)); return "it didn't close in time."; }
                 Thread.Sleep(500);
             }
+            App.Trace("takeover: old copy closed");
             Thread.Sleep(500);
             return null;
         }
@@ -507,6 +521,17 @@ namespace Aetheris
         public static void Bg(Action<object> a)
         {
             ThreadPool.QueueUserWorkItem(o => { try { a(o); } catch (Exception ex) { CrashLog("background task", ex); } });
+        }
+
+        public static void Trace(string msg)
+        {
+            try
+            {
+                var f = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "aetheris-update.log");
+                if (File.Exists(f) && new FileInfo(f).Length > 200000) File.Delete(f);
+                File.AppendAllText(f, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " [" + Program.Version + " pid " + Process.GetCurrentProcess().Id + "] " + msg + "\r\n");
+            }
+            catch { }
         }
 
         public static void CrashLog(string where, Exception ex)
@@ -2635,9 +2660,12 @@ namespace Aetheris
         }
 
         // Asks github.com which release is latest. Uses the release page redirect (not the rate-limited API) with cache-busting.
+        static string TestFile { get { var f = Environment.GetEnvironmentVariable("AETHERIS_UPDATE_FILE"); return !string.IsNullOrEmpty(f) && File.Exists(f) ? f : null; } }
+
         public static void Check(bool force)
         {
             if (busy) return;
+            if (TestFile != null) { latest = "v" + FileVersionInfo.GetVersionInfo(TestFile).FileVersion; App.Cfg.LastUpdateCheck = DateTime.UtcNow.Ticks; status = Newer(latest) ? "available" : "up to date"; return; }
             try
             {
                 status = "checking"; error = "";
@@ -2678,7 +2706,8 @@ namespace Aetheris
             var dir = Path.GetDirectoryName(exe);
             var tmp = Path.Combine(dir, "Aetheris.update.exe");
             Server.Log("Downloading Aetheris " + latest + "…");
-            Net.DownloadTo("https://github.com/" + Repo + "/releases/download/" + Uri.EscapeDataString(latest) + "/Aetheris.exe?_=" + DateTime.UtcNow.Ticks, tmp);
+            if (TestFile != null) File.Copy(TestFile, tmp, true);
+            else Net.DownloadTo("https://github.com/" + Repo + "/releases/download/" + Uri.EscapeDataString(latest) + "/Aetheris.exe?_=" + DateTime.UtcNow.Ticks, tmp);
             var b = File.ReadAllBytes(tmp);
             if (b.Length < 100000 || b[0] != 'M' || b[1] != 'Z') { File.Delete(tmp); throw new Exception("the download isn't a valid Aetheris.exe"); }
             var fv = FileVersionInfo.GetVersionInfo(tmp);
@@ -2686,12 +2715,13 @@ namespace Aetheris
             if (!System.Version.TryParse(fv.FileVersion ?? "", out nv) || !System.Version.TryParse(Program.Version, out cv) || nv <= cv)
             { File.Delete(tmp); throw new Exception("the downloaded file isn't newer (" + fv.FileVersion + ")"); }
             status = "installing";
+            App.Trace("update: installing " + fv.FileVersion + " over " + Program.Version);
             var old = Path.Combine(dir, "Aetheris.old-" + Program.Version + ".exe");
             if (File.Exists(old)) File.Delete(old);
             File.Move(exe, old);           // a running exe can be renamed
             File.Move(tmp, exe);
             Server.Log("Starting Aetheris " + latest + "… (the server is saved and restarted by the new version if it was running)");
-            using (Process.Start(new ProcessStartInfo(exe, "--replace --tray") { UseShellExecute = false, WorkingDirectory = dir })) { }
+            using (Process.Start(new ProcessStartInfo(exe, "--replace --tray") { UseShellExecute = true, WorkingDirectory = dir })) { }
             // the new copy asks this one to shut down (/api/shutdown) and takes over
         }
 
@@ -3418,7 +3448,7 @@ namespace Aetheris
 
                 case "/api/shutdown":
                     if (r.Method != "POST") throw new Fail("Use POST.");
-                    if (Tray.Instance != null) Tray.Instance.RequestExit();
+                    App.Bg(_ => { Thread.Sleep(600); if (Tray.Instance != null) Tray.Instance.RequestExit(); });   // reply first, then close
                     return Ok();
 
                 case "/api/external":
