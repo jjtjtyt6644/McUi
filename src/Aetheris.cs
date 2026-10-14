@@ -23,14 +23,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.7.1.0")]
-[assembly: AssemblyFileVersion("1.7.1.0")]
+[assembly: AssemblyVersion("1.7.2.0")]
+[assembly: AssemblyFileVersion("1.7.2.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.7.1";
+        public const string Version = "1.7.2";
 
         // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
         static void WriteRuntimeConfig()
@@ -2104,11 +2104,70 @@ namespace Aetheris
             catch { }
         }
 
+        static readonly Dictionary<string, Dictionary<string, object>> metaCache = new Dictionary<string, Dictionary<string, object>>();
+
         static Dictionary<string, object> JarMeta(string path)
+        {
+            string key = null;
+            try { var fi = new FileInfo(path); key = path + "|" + fi.Length + "|" + fi.LastWriteTimeUtc.Ticks; } catch { }
+            lock (metaCache) { Dictionary<string, object> c; if (key != null && metaCache.TryGetValue(key, out c)) return c; }
+            Dictionary<string, object> m = null;
+            try
+            {
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                using (var za = new ZipArchive(fs, ZipArchiveMode.Read)) m = ReadMeta(za, 0);
+            }
+            catch { }
+            if (key != null) lock (metaCache) metaCache[key] = m;
+            return m;
+        }
+
+        // Ids of mods bundled inside this jar (Fabric "jars" jar-in-jar, Forge/NeoForge META-INF/jarjar), up to 2 levels deep.
+        static List<string> NestedIds(ZipArchive za, int depth)
+        {
+            var ids = new List<string>();
+            if (depth > 1) return ids;
+            foreach (var e in za.Entries)
+            {
+                var n = e.FullName.Replace('\\', '/');
+                if (!(n.StartsWith("META-INF/jars/") || n.StartsWith("META-INF/jarjar/")) || !n.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) || e.Length > 40 * 1048576) continue;
+                try
+                {
+                    using (var ms = new MemoryStream())
+                    {
+                        using (var es = e.Open()) es.CopyTo(ms);
+                        ms.Position = 0;
+                        using (var inner = new ZipArchive(ms, ZipArchiveMode.Read))
+                        {
+                            var im = ReadMeta(inner, depth + 1);
+                            if (im == null) continue;
+                            if (im.ContainsKey("id") && im["id"] != null) ids.Add(Convert.ToString(im["id"]));
+                            foreach (var pv in (im.ContainsKey("provides") ? im["provides"] as string[] : null) ?? new string[0]) ids.Add(pv);
+                        }
+                    }
+                }
+                catch { }
+            }
+            return ids;
+        }
+
+        static Dictionary<string, object> ReadMeta(ZipArchive za, int depth)
+        {
+            var m = ReadMetaTop(za);
+            if (m == null) return null;
+            var nested = NestedIds(za, depth);
+            if (nested.Count > 0)
+            {
+                var pv = ((m.ContainsKey("provides") ? m["provides"] as string[] : null) ?? new string[0]).Concat(nested).Distinct().ToArray();
+                m["provides"] = pv;
+            }
+            return m;
+        }
+
+        static Dictionary<string, object> ReadMetaTop(ZipArchive za)
         {
             try
             {
-                using (var za = ZipFile.OpenRead(path))
                 {
                     var e = za.GetEntry("fabric.mod.json");
                     if (e != null)
