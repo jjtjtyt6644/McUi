@@ -245,6 +245,9 @@ pre.out{background:#07090d;border:1px solid var(--line);border-radius:10px;paddi
 .hero-icon{width:72px;height:72px;border-radius:18px;image-rendering:pixelated;flex:none;border:2px solid #ef444466;box-shadow:0 0 0 4px #ef444414}
 body[data-state=online] .hero-icon{border-color:#22c55e88;box-shadow:0 0 0 4px #22c55e18}
 body[data-state=starting] .hero-icon,body[data-state=stopping] .hero-icon{border-color:#f59e0b88;box-shadow:0 0 0 4px #f59e0b18}
+.netgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.netgrid .stat-v{font-size:17px}
+@media (max-width:980px){.netgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .qa{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .perf{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
 .perf .card{margin:0;padding:18px 20px 12px}
@@ -521,10 +524,22 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <div class="pfoot"><span><span class="dot on" style="display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:middle"></span>Live · updates every second</span><span id="cpuPeak"></span></div>
     </div>
   </div>
+  <div class="card" style="margin-top:16px">
+    <div class="card-h" style="margin-bottom:10px"><svg class="ic"><use href="#i-net"/></svg><h3>Network</h3><span class="badge n" id="netBadge">offline</span></div>
+    <div class="netgrid">
+      <div><div class="stat-l">Download (this PC)</div><div class="stat-v" id="nDown">—</div></div>
+      <div><div class="stat-l">Upload (this PC)</div><div class="stat-v" id="nUp">—</div></div>
+      <div><div class="stat-l">Internet latency</div><div class="stat-v" id="nNet">—</div></div>
+      <div><div class="stat-l">Tunnel latency (playit)</div><div class="stat-v" id="nTun" title="">—</div></div>
+      <div><div class="stat-l">Player connections</div><div class="stat-v" id="nConn">—</div></div>
+    </div>
+    <div class="spark" id="netSpark"></div>
+    <div class="pfoot"><span><span style="color:#22d3ee">■</span> download · <span style="color:#f59e0b">■</span> upload, while the server runs</span><span id="nChecked"></span></div>
+  </div>
   <div class="grid2">
     <div class="card"><div class="card-h"><svg class="ic"><use href="#i-users"/></svg><h3>Online players</h3><a data-href="#players" tabindex="0" role="link">Manage</a></div><div id="dashPlayers" class="chips"></div></div>
-    <div class="card" style="grid-column:1/-1"><div class="card-h"><svg class="ic"><use href="#i-users"/></svg><h3>Message everyone</h3></div><form class="addbar" id="bcForm" style="margin:0"><input name="m" placeholder="Type a message: it shows in chat for everyone online" maxlength="200" autocomplete="off"><select name="how" style="width:150px"><option value="say">Chat</option><option value="title">Big title</option><option value="actionbar">Above hotbar</option></select><button class="btn">Send</button></form></div>
     <div class="card"><div class="card-h"><svg class="ic"><use href="#i-term"/></svg><h3>Console</h3><a data-href="#console" tabindex="0" role="link">Open</a></div><div class="mini-term" id="miniTerm"></div></div>
+    <div class="card" style="grid-column:1/-1"><div class="card-h"><svg class="ic"><use href="#i-users"/></svg><h3>Message everyone</h3></div><form class="addbar" id="bcForm" style="margin:0"><input name="m" placeholder="Type a message: it shows in chat for everyone online" maxlength="200" autocomplete="off"><select name="how" style="width:150px"><option value="say">Chat</option><option value="title">Big title</option><option value="actionbar">Above hotbar</option></select><button class="btn">Send</button></form></div>
   </div>
 </section>
 
@@ -978,6 +993,24 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
 </ul>
 </div>
 
+<div class="gsec" id="g-network" data-cat="Playing with friends" data-title="Network monitoring">
+<h2><svg class="ic"><use href="#i-net"/></svg>Network monitoring</h2>
+<p class="lead">The Dashboard's Network card shows how healthy the connection to your server is.</p>
+<table><tr><th>Value</th><th>What it means</th></tr>
+<tr><td>Download / Upload</td><td>How fast this PC is receiving and sending data right now, across all its network adapters (everything, not just Minecraft). Each player usually uses 50–500 KB/s.</td></tr>
+<tr><td>Internet latency</td><td>Round trip from this PC to the internet (pings to 1.1.1.1 / 8.8.8.8). Green under 60 ms, yellow under 150 ms. “Loss” means some pings never came back, which feels like lag for everyone.</td></tr>
+<tr><td>Tunnel latency (playit)</td><td>A real Minecraft server-list ping to your <b>public address</b> (Settings → Public address). It travels out to the internet, through playit and back to your server, which is exactly the path your friends use. Green under 120 ms. “No reply” means friends can't connect right now.</td></tr>
+<tr><td>Player connections</td><td>How many players are connected over the network right now.</td></tr></table>
+<p>Latency is checked every 20 seconds while the panel is open (every minute otherwise), and only while the server runs.</p>
+<h4>Network watchdog</h4>
+<ul>
+<li>Turn it on in Settings → Automation. If the tunnel stops answering 3 checks in a row while the internet works, Aetheris restarts the playit tunnel (set “playit program” in Settings).</li>
+<li>Optional: <b>also restart the server</b>, with a 1-minute countdown for players.</li>
+<li>If the whole internet is down, nothing is restarted. A restart can't fix your internet connection, and it would only kick players for nothing.</li>
+</ul>
+<div class="tip">Slow speeds are usually your internet plan's <b>upload</b> speed (home connections upload much slower than they download), Wi-Fi instead of a cable, or other devices using the connection. A cable to the router helps the most.</div>
+</div>
+
 <div class="gsec" id="g-connect" data-cat="Playing with friends" data-title="How players connect">
 <h2><svg class="ic"><use href="#i-users"/></svg>How players connect</h2>
 <table><tr><th>Who</th><th>Address to use</th></tr>
@@ -1189,6 +1222,8 @@ kbd{font:600 11px var(--mono);background:#ffffff10;border:1px solid var(--line2)
       <div class="card-h"><svg class="ic"><use href="#i-restart"/></svg><h3>Automation</h3></div>
       <div class="opt"><div class="opt-l"><b>Restart after a crash</b><small>Max 3 times in 10 minutes.</small></div><span class="sw"><input type="checkbox" data-cfg="AutoRestart"><span></span></span></div>
       <div class="opt"><div class="opt-l"><b>Connection watchdog</b><small>Checks every minute that players can still connect. If the server stops answering for 3 minutes, it's restarted.</small></div><span class="sw"><input type="checkbox" data-cfg="Watchdog"><span></span></span></div>
+      <div class="opt"><div class="opt-l"><b>Network watchdog</b><small>Checks the internet and your playit tunnel while the server runs. If the tunnel stops answering 3 times in a row (and the internet works), Aetheris restarts the playit tunnel. Needs “playit program” set below. If the whole internet is down, nothing is restarted, because a restart can't fix that.</small></div><span class="sw"><input type="checkbox" data-cfg="NetWatch"><span></span></span></div>
+      <div class="opt"><div class="opt-l"><b>…also restart the server</b><small>When the tunnel stays broken, also restart the Minecraft server (with a 1-minute countdown for players).</small></div><span class="sw"><input type="checkbox" data-cfg="NetRestartServer"><span></span></span></div>
       <div class="opt"><div class="opt-l"><b>Tray notifications</b><small>Pop-up when the server crashes or gets restarted.</small></div><span class="sw"><input type="checkbox" data-cfg="Notify"><span></span></span></div>
       <div class="opt"><div class="opt-l"><b>Start the server when Aetheris opens</b></div><span class="sw"><input type="checkbox" data-cfg="AutoStart"><span></span></span></div>
       <div class="opt"><div class="opt-l"><b>Run Aetheris when Windows starts</b><small>Starts quietly in the tray.</small></div><span class="sw"><input type="checkbox" id="c-autostart"><span></span></span></div>
@@ -1391,7 +1426,9 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden){poll();co
 
 /* ---------- live performance ---------- */
 const gb=mb=>mb>=1024?(mb/1024).toFixed(2)+' GB':Math.round(mb)+' MB';
-S.hist={ram:[],cpu:[]};S.lastT=0;S.needHist=true;
+S.hist={ram:[],cpu:[],down:[],up:[]};S.lastT=0;S.needHist=true;
+const rate=b=>{b=+b||0;const mbit=b*8/1e6;return mbit>=1?mbit.toFixed(1)+' Mbit/s':(b/1024).toFixed(b<10240?1:0)+' KB/s'};
+const msTxt=(ms,good,ok)=>ms<0?'<span style="color:#fca5a5">no reply</span>':`<span style="color:${ms<=good?'#86efac':ms<=ok?'#fcd34d':'#fca5a5'}">${ms} ms</span>`;
 function loaderKind(l){return /fabric|quilt|forge|neoforge/.test(l)?'mods':/paper|purpur|spigot|bukkit|folia/.test(l)?'plugins':''}
 function spark(el,data,max,color){
   const w=300,h=70,N=120;
@@ -1404,11 +1441,27 @@ function spark(el,data,max,color){
 }
 function renderPerf(s){
   const off=s.state==='offline';
-  if(off){S.hist={ram:[],cpu:[]};S.lastT=0;S.needHist=true}
+  if(off){S.hist={ram:[],cpu:[],down:[],up:[]};S.lastT=0;S.needHist=true}
   else{
-    if(s.hist){S.hist={ram:s.hist.map(x=>x.ram),cpu:s.hist.map(x=>x.cpu)};S.lastT=s.hist.length?s.hist[s.hist.length-1].t:0}
-    else if(s.sample&&s.sample.t>S.lastT){S.hist.ram.push(s.sample.ram);S.hist.cpu.push(s.sample.cpu);S.lastT=s.sample.t}
-    while(S.hist.ram.length>120){S.hist.ram.shift();S.hist.cpu.shift()}
+    if(s.hist){S.hist={ram:s.hist.map(x=>x.ram),cpu:s.hist.map(x=>x.cpu),down:s.hist.map(x=>x.down||0),up:s.hist.map(x=>x.up||0)};S.lastT=s.hist.length?s.hist[s.hist.length-1].t:0}
+    else if(s.sample&&s.sample.t>S.lastT){S.hist.ram.push(s.sample.ram);S.hist.cpu.push(s.sample.cpu);S.hist.down.push(s.sample.down||0);S.hist.up.push(s.sample.up||0);S.lastT=s.sample.t}
+    while(S.hist.ram.length>120){S.hist.ram.shift();S.hist.cpu.shift();S.hist.down.shift();S.hist.up.shift()}
+  }
+  const n=s.net;
+  if(n){
+    $('#nDown').textContent=off?'—':rate(n.down);$('#nUp').textContent=off?'—':rate(n.up);
+    $('#nNet').innerHTML=off||!n.checked?'—':msTxt(n.internetMs,60,150)+(n.loss>0?` <small style="color:#fca5a5">${n.loss}% loss</small>`:'');
+    $('#nTun').innerHTML=off?'—':n.tunnel?msTxt(n.tunnelMs,120,250):'<small class="dim">set your playit address in Settings</small>';
+    $('#nTun').title=n.tunnel?`Minecraft ping through ${n.tunnel}${n.tunnelError?' · '+n.tunnelError:''}`:'';
+    $('#nConn').textContent=off?'—':n.conns;
+    $('#nChecked').textContent=n.checked?'latency checked '+Math.max(0,Math.round((Date.now()-n.checked)/1000))+' s ago':'';
+    const bad=!off&&(n.internetMs<0&&n.checked||n.tunnel&&n.tunnelMs<0&&n.checked);
+    $('#netBadge').className='badge '+(off?'n':bad?'r':'g');$('#netBadge').textContent=off?'offline':bad?(n.internetMs<0?'internet down':'tunnel not answering'):'healthy';
+    if(S.page==='dashboard'){
+      const el=$('#netSpark'),w=300,h=70,N=120,mx=Math.max(20480,...S.hist.down,...S.hist.up)*1.15;
+      const path=d=>{if(d.length<2)return'';const st=w/(N-1),o=w-(d.length-1)*st;return 'M'+d.map((v,i)=>(o+i*st).toFixed(1)+' '+(h-3-v/mx*(h-8)).toFixed(1)).join(' L')};
+      el.innerHTML=`<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><line x1="0" y1="${h-1}" x2="${w}" y2="${h-1}" stroke="#ffffff14"/><path d="${path(S.hist.down)}" fill="none" stroke="#22d3ee" stroke-width="2" vector-effect="non-scaling-stroke"/><path d="${path(S.hist.up)}" fill="none" stroke="#f59e0b" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+    }
   }
   const pct=off?0:Math.round(s.ram/s.xmx*100);
   $('#stRam').textContent=off?'—':gb(s.ram);

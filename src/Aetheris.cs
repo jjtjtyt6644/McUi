@@ -10,6 +10,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -23,14 +24,14 @@ using Microsoft.Win32;
 [assembly: AssemblyTitle("Aetheris")]
 [assembly: AssemblyProduct("Aetheris")]
 [assembly: AssemblyDescription("Minecraft server panel")]
-[assembly: AssemblyVersion("1.8.1.0")]
-[assembly: AssemblyFileVersion("1.8.1.0")]
+[assembly: AssemblyVersion("1.9.0.0")]
+[assembly: AssemblyFileVersion("1.9.0.0")]
 
 namespace Aetheris
 {
     static class Program
     {
-        public const string Version = "1.8.1";
+        public const string Version = "1.9.0";
 
         // Aetheris.exe.config: background errors don't terminate the process; lighter garbage collector.
         static void WriteRuntimeConfig()
@@ -388,6 +389,8 @@ namespace Aetheris
         public bool Watchdog { get; set; }
         public bool Notify { get; set; }
         public List<TaskDef> Tasks { get; set; }
+        public bool NetWatch { get; set; }          // restart the playit tunnel when it stops answering
+        public bool NetRestartServer { get; set; }  // ...and restart the server too
         public int Cv { get; set; }                 // config format version
         public string CurseForgeKey { get; set; }
         public bool AutoUpdate { get; set; }
@@ -890,8 +893,10 @@ namespace Aetheris
         }
 
         // Full "server list ping": returns the status JSON the multiplayer screen shows (players online, max, sample names).
+        [ThreadStatic] public static int LastPingMs;
         public static Dictionary<string, object> Status(string host, int port, int timeoutMs)
         {
+            LastPingMs = -1;
             try
             {
                 using (var c = new TcpClient())
@@ -918,9 +923,11 @@ namespace Aetheris
                     {
                         // ping (0x01 + long) -> pong, like the multiplayer screen does; then a clean close
                         var ping = new byte[] { 9, 1, 0, 0, 0, 0, 0, 0, 0, 42 };
+                        var rtt = Stopwatch.StartNew();
                         s.Write(ping, 0, ping.Length);
                         var pong = new byte[10]; int got = 0;
                         while (got < 10) { int n = s.Read(pong, got, 10 - got); if (n <= 0) break; got += n; }
+                        if (got == 10) LastPingMs = (int)rtt.ElapsedMilliseconds;   // true round-trip latency
                         c.Client.Shutdown(SocketShutdown.Send);
                         var rest = new byte[64]; while (c.Client.Receive(rest) > 0) { }
                     }
@@ -1343,7 +1350,8 @@ namespace Aetheris
         [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
         [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
 
-        public class Sample { public long t; public long ram; public double cpu; public int procs; }
+        public class Sample { public long t; public long ram; public double cpu; public int procs; public long down; public long up; }
+        static long prevRx = -1, prevTx = -1;
         static readonly List<Sample> hist = new List<Sample>();
         static Sample last = new Sample();
         static System.Threading.Timer sampler;
@@ -1404,7 +1412,7 @@ namespace Aetheris
 
         static void StartSampler()
         {
-            lock (hist) { hist.Clear(); last = new Sample(); prevCpu100ns = -1; }
+            lock (hist) { hist.Clear(); last = new Sample(); prevCpu100ns = -1; prevRx = -1; prevTx = -1; }
             if (sampler == null) sampler = new System.Threading.Timer(_ => SampleNow(), null, 500, Timeout.Infinite);
             else sampler.Change(500, Timeout.Infinite);
         }
@@ -1429,14 +1437,21 @@ namespace Aetheris
                         double wallMs = (now - prevWall).TotalMilliseconds;
                         if (wallMs > 0) cpu = Math.Max(0, Math.Min(100, (cpuT - prevCpu100ns) / 10000.0 / wallMs / Environment.ProcessorCount * 100));
                     }
+                    double secsSince = prevWall == default(DateTime) ? 0 : (now - prevWall).TotalSeconds;
                     prevCpu100ns = cpuT; prevWall = now;
-                    last = new Sample { t = Jsn.Ms(now), ram = ram, cpu = Math.Round(cpu, 1), procs = pids.Count };
+                    long rx, tx; NetMon.Bytes(out rx, out tx);
+                    long down = 0, up = 0;
+                    double secs = secsSince;
+                    if (prevRx >= 0 && rx >= prevRx && tx >= prevTx && secs > 0) { down = (long)((rx - prevRx) / secs); up = (long)((tx - prevTx) / secs); }
+                    prevRx = rx; prevTx = tx;
+                    last = new Sample { t = Jsn.Ms(now), ram = ram, cpu = Math.Round(cpu, 1), procs = pids.Count, down = down, up = up };
                     hist.Add(last);
                     if (hist.Count > 400) hist.RemoveRange(0, hist.Count - 400);
                 }
             }
             catch { }
             // every second while someone watches the panel, every 5 s otherwise (keeps a short history for the graphs)
+            NetMon.MaybeCheck();
             int next = (DateTime.Now - App.LastTouch).TotalSeconds < 15 ? 1000 : 5000;
             try { sampler.Change(next, Timeout.Infinite); } catch { }
         }
@@ -2886,6 +2901,136 @@ namespace Aetheris
         }
     }
 
+    // ------------------------------------------------------------------ network monitoring (internet + playit tunnel)
+    static class NetMon
+    {
+        public static int InternetMs = -1, LossPct = -1, TunnelMs = -1, TunnelFails, InternetFails;
+        public static string TunnelTarget = "", TunnelError = "";
+        public static DateTime LastCheck = DateTime.MinValue;
+        static volatile bool checking;
+
+        // total bytes received/sent by this PC's real network adapters
+        public static void Bytes(out long rx, out long tx)
+        {
+            rx = 0; tx = 0;
+            try
+            {
+                foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.OperationalStatus != OperationalStatus.Up || ni.NetworkInterfaceType == NetworkInterfaceType.Loopback || ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
+                    var st = ni.GetIPStatistics();
+                    rx += st.BytesReceived; tx += st.BytesSent;
+                }
+            }
+            catch { }
+        }
+
+        public static int Connections()
+        {
+            try
+            {
+                int port; if (!int.TryParse(Props.Get("server-port", "25565"), out port)) port = 25565;
+                return IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections()
+                    .Count(c => c.LocalEndPoint.Port == port && c.State == TcpState.Established && !IPAddress.IsLoopback(c.RemoteEndPoint.Address));
+            }
+            catch { return -1; }
+        }
+
+        // called by the sampler (only while the server runs): every 20 s while the panel is open, every 60 s otherwise
+        public static void MaybeCheck()
+        {
+            double every = (DateTime.Now - App.LastTouch).TotalSeconds < 15 ? 20 : 60;
+            if (checking || (DateTime.Now - LastCheck).TotalSeconds < every) return;
+            checking = true;
+            App.Bg(_ => { try { Check(); } finally { checking = false; LastCheck = DateTime.Now; } });
+        }
+
+        static void Check()
+        {
+            // internet: 4 pings to well-known DNS servers
+            int ok = 0; long total = 0;
+            using (var pg = new Ping())
+                foreach (var host in new[] { "1.1.1.1", "8.8.8.8", "1.1.1.1", "8.8.8.8" })
+                {
+                    try { var r = pg.Send(host, 1500); if (r.Status == IPStatus.Success) { ok++; total += r.RoundtripTime; } } catch { }
+                }
+            InternetMs = ok > 0 ? (int)(total / ok) : -1;
+            LossPct = (4 - ok) * 25;
+            InternetFails = ok == 0 ? InternetFails + 1 : 0;
+
+            // tunnel: a real Minecraft status ping to the public (playit) address = the path your friends use
+            var addr = (App.Cfg.Address ?? "").Trim();
+            if (addr == "" || Server.State != "online") { TunnelMs = -1; TunnelTarget = ""; TunnelError = addr == "" ? "no public address set" : ""; TunnelFails = 0; return; }
+            string host2; int port2;
+            Resolve(addr, out host2, out port2);
+            TunnelTarget = host2 + ":" + port2;
+            var sw = Stopwatch.StartNew();
+            var st = Server.Status(host2, port2, 5000);
+            if (st != null) { TunnelMs = Server.LastPingMs >= 0 ? Server.LastPingMs : (int)sw.ElapsedMilliseconds; TunnelError = ""; TunnelFails = 0; }
+            else
+            {
+                TunnelMs = -1;
+                TunnelError = ok == 0 ? "no internet" : "tunnel didn't answer";
+                if (ok > 0) TunnelFails++;   // only count it when the internet itself works
+            }
+            Watch();
+        }
+
+        static void Watch()
+        {
+            var c = App.Cfg;
+            if (!c.NetWatch) return;
+            if (InternetFails == 3) Server.Log("Network: the internet seems to be down (no ping replies). Not restarting anything, because a restart can't fix that.");
+            if (TunnelFails < 3) return;
+            TunnelFails = 0;
+            Server.Log("Network: the playit tunnel (" + TunnelTarget + ") stopped answering 3 times in a row while the internet works.");
+            if (c.PlayitPath != "" && File.Exists(c.PlayitPath))
+            {
+                Server.Log("Network: restarting the playit tunnel…");
+                try { foreach (var p in Process.GetProcessesByName(Path.GetFileNameWithoutExtension(c.PlayitPath))) using (p) p.Kill(); } catch { }
+                Thread.Sleep(2000);
+                Server.StartPlayit();
+            }
+            if (c.NetRestartServer) Server.RestartWithWarning(60);
+        }
+
+        // "host", "host:port", or a playit/joinmc address with a DNS SRV record (_minecraft._tcp)
+        static string srvCacheKey; static string srvHost; static int srvPort; static DateTime srvAt;
+        static void Resolve(string addr, out string host, out int port)
+        {
+            var m = Regex.Match(addr, @"^\[?([^\]]+?)\]?(?::(\d+))?$");
+            host = m.Success ? m.Groups[1].Value : addr;
+            if (m.Success && m.Groups[2].Success) { port = int.Parse(m.Groups[2].Value); return; }
+            port = 25565;
+            if (srvCacheKey == host && (DateTime.Now - srvAt).TotalMinutes < 30) { host = srvHost; port = srvPort; return; }
+            try
+            {
+                using (var wc = Net.Client())
+                {
+                    wc.Headers[HttpRequestHeader.Accept] = "application/dns-json";
+                    var d = Jsn.S.DeserializeObject(wc.DownloadString(Net.Check("https://cloudflare-dns.com/dns-query?type=SRV&name=_minecraft._tcp." + Uri.EscapeDataString(host)))) as Dictionary<string, object>;
+                    var ans = (d != null && d.ContainsKey("Answer") ? d["Answer"] as object[] : null) ?? new object[0];
+                    foreach (var o in ans.OfType<Dictionary<string, object>>())
+                    {
+                        var parts = Convert.ToString(o["data"]).Split(' ');   // priority weight port target
+                        if (parts.Length == 4) { srvCacheKey = host; srvPort = int.Parse(parts[2]); srvHost = parts[3].TrimEnd('.'); srvAt = DateTime.Now; host = srvHost; port = srvPort; return; }
+                    }
+                }
+            }
+            catch { }
+            srvCacheKey = host; srvHost = host; srvPort = 25565; srvAt = DateTime.Now;
+        }
+
+        public static object Info()
+        {
+            var s = Server.Latest();
+            bool on = Server.Running;
+            return Jsn.D("down", on ? s.down : 0, "up", on ? s.up : 0, "internetMs", InternetMs, "loss", LossPct, "tunnelMs", TunnelMs,
+                "tunnel", TunnelTarget, "tunnelError", TunnelError, "conns", on ? Connections() : 0,
+                "checked", LastCheck == DateTime.MinValue ? 0L : Jsn.Ms(LastCheck.ToUniversalTime()));
+        }
+    }
+
     // ------------------------------------------------------------------ Forge / NeoForge server installers
     static class Loaders
     {
@@ -3121,7 +3266,7 @@ namespace Aetheris
             "piston-meta.mojang.com", "piston-data.mojang.com", "launchermeta.mojang.com", "launcher.mojang.com",
             "api.papermc.io", "fill.papermc.io", "fill-data.papermc.io", "api.purpurmc.org", "meta.fabricmc.net",
             "api.modrinth.com", "cdn.modrinth.com", "files.minecraftforge.net", "maven.minecraftforge.net", "maven.neoforged.net",
-            "api.curseforge.com", "edge.forgecdn.net", "mediafilez.forgecdn.net", "api.cfwidget.com", "github.com", "objects.githubusercontent.com", "raw.githubusercontent.com", "release-assets.githubusercontent.com" };
+            "api.curseforge.com", "edge.forgecdn.net", "mediafilez.forgecdn.net", "api.cfwidget.com", "cloudflare-dns.com", "github.com", "objects.githubusercontent.com", "raw.githubusercontent.com", "release-assets.githubusercontent.com" };
 
         class Wc : WebClient
         {
@@ -3489,7 +3634,7 @@ namespace Aetheris
                 "snake", Server.SnakeRules(), "sysram", App.SysRamMb(), "sysfree", App.SysFreeMb(),
                 "icon", Safe(() => App.Configured && File.Exists(Path.Combine(c.ServerDir, "server-icon.png")), false),
                 "loader", Safe(() => Addons.Loader(), "vanilla"), "mc", Safe(() => Addons.McVersion(), ""), "sample", Server.Latest(),
-                "hist", r.Qs("hist") != "" ? (object)Server.History(0) : null, "pending", Server.Pending(), "external", Safe(() => Server.External(), null), "aetheris", Program.Version, "tasks", c.Tasks.Count(t => t.Enabled), "update", Updater.Info(), "disk", Safe(() => DiskInfo(), null));
+                "hist", r.Qs("hist") != "" ? (object)Server.History(0) : null, "pending", Server.Pending(), "external", Safe(() => Server.External(), null), "aetheris", Program.Version, "tasks", c.Tasks.Count(t => t.Enabled), "update", Updater.Info(), "disk", Safe(() => DiskInfo(), null), "net", Safe(() => NetMon.Info(), null));
         }
 
         static object SaveConfig(Req r)
